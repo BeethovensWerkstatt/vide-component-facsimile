@@ -1,0 +1,23 @@
+{
+  "name": "vide-component-facsimile",
+  "version": "1.0.0",
+  "description": "Reusable Digital Facsimile Web Component with OpenSeadragon viewer.",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "files": [
+    "src/",
+    "dist/",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "npm run build:css && mkdir -p dist && cp src/vide-facs.js dist/vide-facs.js",
+    "build:css": "mkdir -p dist && sass src/styles.scss dist/vide-facs.css --no-source-map",
+    "watch:css": "sass src/styles.scss src/styles.css --no-source-map --watch"
+  },
+  "devDependencies": {
+    "sass": "^1.69.0"
+  },
+  "keywords": ["facsimile", "web-component", "OpenSeadragon", "IIIF"],
+  "author": "Johannes Kepper",
+  "license": "AGPL-3.0-or-later"
+}
