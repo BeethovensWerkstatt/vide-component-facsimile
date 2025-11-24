@@ -54,7 +54,7 @@ vide-facs-nav {
         color: white;
 
         &:hover {
-          background-color: color.adjust($brand-color, $lightness: -10%);
+          background-color: $brand-color;
           color: white;
         }
       }
@@ -430,7 +430,7 @@ vide-facs-content {
       cursor: pointer;
 
       &:hover {
-        color: color.adjust($brand-color, $lightness: -15%);
+        color: $brand-color;
       }
     }
 
@@ -465,7 +465,7 @@ vide-facs-content {
         transition: background-color 0.2s ease;
 
         &:hover {
-          background-color: color.adjust($brand-color, $lightness: -10%);
+          background-color: $brand-color;
         }
 
         &:active {

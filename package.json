@@ -16,7 +16,7 @@
     "prepare": "npm run build"
   },
   "devDependencies": {
-    "sass": "^1.69.0"
+    "sass": "^1.69.5"
   },
   "keywords": ["facsimile", "web-component", "OpenSeadragon", "IIIF"],
   "author": "Johannes Kepper",
