@@ -1,1 +1,521 @@
-// ...existing code from Website/assets/js/vide-facs/styles.scss will be placed here...
+// ...existing code from Website/assets/js/vide-facs/styles.scss will be placed here...@use 'sass:color';
+// Digital Facsimile SPA Island Styles - Web Components
+//
+// This file contains all styles specific to the Digital Facsimile SPA island components.
+// When extracting this module to a separate repository, include this file.
+//
+// Variable defaults (override these in your main stylesheet):
+$text-color: #4a4a4a !default;
+$brand-color: #c62828 !default;
+$grey-color-light: #e8e8e8 !default;
+$mobile-width: 768px !default;
+
+// Main app container
+vide-facs {
+  display: block;
+  width: 100%;
+  height: 100vh;
+
+  .vide-facs-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+// Navigation component
+vide-facs-nav {
+  display: block;
+  flex-shrink: 0;
+  padding: 1rem 0;
+  border-bottom: 2px solid $grey-color-light;
+
+  .spa-nav {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+
+    a {
+      color: $text-color;
+      text-decoration: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+      font-weight: 500;
+
+      &:hover {
+        background-color: $grey-color-light;
+        color: $brand-color;
+      }
+
+      &.active {
+        background-color: $brand-color;
+        color: white;
+
+        &:hover {
+          background-color: color.adjust($brand-color, $lightness: -10%);
+          color: white;
+        }
+      }
+    }
+  }
+}
+
+// Content component
+vide-facs-content {
+  display: block;
+  width: 100%;
+  flex: 1;
+  overflow-y: auto;
+
+  .spa-content-wrapper {
+    width: 100%;
+    height: 100%;
+  }
+
+  .spa-view {
+    animation: fadeIn 0.3s ease-in-out;
+    width: 100%;
+    height: 100%;
+
+    h1 {
+      color: $brand-color;
+      margin-bottom: 1rem;
+    }
+
+    // Facsimile viewer specific styles
+    &.facsimile-view {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+
+      // Page preview panel (overlay on top of OSD)
+      .page-preview-panel {
+        background-color: rgba(42, 42, 42, 0.85);
+        backdrop-filter: blur(5px);
+        border-bottom: 3px solid #d4a942;
+        overflow-x: auto;
+        overflow-y: hidden;
+        transition: max-height 0.3s ease;
+        max-height: 180px;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        z-index: 999;
+
+        &.collapsed {
+          max-height: 0;
+          border-bottom-width: 0;
+          overflow: hidden;
+
+          .page-preview-container {
+            opacity: 0;
+            pointer-events: none;
+          }
+
+          // Move OSD controls and side panel to top when panel is collapsed
+          ~#openseadragon-viewer .viewer-overlay-controls {
+            top: 10px;
+          }
+
+          ~.side-panel {
+            top: 10px;
+          }
+        }
+
+        .page-preview-container {
+          display: flex;
+          gap: 0;
+          padding: 15px;
+          min-width: min-content;
+
+          .page-thumbnail-group {
+            display: inline-block;
+            background-color: #3a3a3a;
+            border: 3px solid #4a4a4a;
+            cursor: pointer;
+            transition: margin-left 0.2s ease, margin-right 0.2s ease, border-color 0.2s ease;
+            position: relative;
+            height: 90px;
+            z-index: 1;
+            overflow: hidden;
+            white-space: nowrap;
+            vertical-align: top;
+
+            // Default overlap for single page following single page
+            margin-left: -50px;
+
+            &:first-child {
+              margin-left: 0;
+            }
+
+            // Larger overlap when following a double page
+            &[data-page-count="double"]+& {
+              margin-left: -240px;
+            }
+
+            // Active page is always fully visible - reset margin and add spacing
+            &.active {
+              border-color: #d4a942;
+              background-color: #4a4a4a;
+              margin-left: 0 !important;
+              margin-right: 0.8rem;
+            }
+
+            &:hover {
+              border-color: #d4a942;
+              margin-left: 0 !important;
+              margin-right: 0.8rem;
+            }
+
+            img {
+              height: 90px;
+              width: auto;
+              object-fit: cover;
+              display: inline-block;
+              vertical-align: top;
+              filter: grayscale(80%);
+              opacity: 0.6;
+              transition: all 0.2s ease;
+            }
+
+            // Active and hovered thumbnails show in color
+            &.active img,
+            &:hover img {
+              filter: grayscale(0%);
+              opacity: 1;
+            }
+
+            .page-label {
+              position: absolute;
+              left: 4px;
+              top: 50%;
+              transform: translateY(-50%) rotate(-90deg);
+              transform-origin: left center;
+              padding: 2px 6px;
+              font-size: 0.7rem;
+              color: #ffffff;
+              background-color: rgba(0, 0, 0, 0.75);
+              white-space: nowrap;
+              pointer-events: none;
+              font-weight: 600;
+            }
+          }
+        }
+      }
+
+      #openseadragon-viewer {
+        flex: 1;
+        width: 100%;
+        background-color: #000;
+        position: relative;
+        overflow: hidden;
+
+        // Overlay controls (positioned below preview panel or at top)
+        .viewer-overlay-controls {
+          position: absolute;
+          top: 133px;
+          left: 10px;
+          z-index: 1000;
+          display: flex;
+          flex-direction: row;
+          gap: 6px;
+          transition: top 0.3s ease;
+
+          .control-button {
+            width: 40px;
+            height: 40px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+
+            &:hover:not(:disabled) {
+              background-color: #fff;
+              border-color: #999;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            }
+
+            &:active:not(:disabled) {
+              transform: translateY(1px);
+            }
+
+            &:disabled {
+              opacity: 0.4;
+              cursor: not-allowed;
+            }
+          }
+        }
+
+        // Page info overlay (bottom center)
+        .page-info-overlay {
+          position: absolute;
+          bottom: 15px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 1000;
+          background-color: rgba(0, 0, 0, 0.8);
+          color: white;
+          padding: 8px 16px;
+          border-radius: 4px;
+          font-size: 0.9rem;
+          font-weight: 500;
+          pointer-events: none;
+        }
+      }
+
+      // Side panel (right side, collapsible with tabs)
+      .side-panel {
+        position: absolute;
+        top: 133px;
+        right: 0;
+        bottom: 0;
+        width: 35%;
+        min-width: 200px;
+        max-width: 80%;
+        background-color: transparent;
+        z-index: 998;
+        display: flex;
+        transition: top 0.3s ease, right 0.3s ease;
+        overflow: visible;
+
+        &.collapsed {
+          right: calc(-35% + 0px);
+
+          .side-panel-content {
+            opacity: 0;
+            pointer-events: none;
+          }
+        }
+
+        .side-panel-tabs {
+          position: absolute;
+          left: -29.5px;
+          top: -0.5px;
+          bottom: 0;
+          display: flex;
+          flex-direction: column;
+          background-color: transparent;
+          width: 30px;
+          z-index: 1;
+
+          .side-panel-tab {
+            background-color: rgba(255, 255, 255, 0.7);
+            border: 0.5px solid #333333;
+            border-right: none;
+            border-radius: 0.3rem 0 0 0.3rem;
+            padding: 0.8rem 0.3rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+
+            .tab-label {
+              writing-mode: vertical-rl;
+              transform: rotate(180deg);
+              color: #666;
+              font-size: 0.99rem;
+              font-weight: 500;
+              letter-spacing: 0.05em;
+              white-space: nowrap;
+            }
+
+            &:hover {
+              background-color: rgba(255, 255, 255, 0.9);
+
+              .tab-label {
+                color: #333;
+              }
+            }
+
+            &.active {
+              background-color: rgba(255, 255, 255, 0.95);
+              border-right: .5px solid transparent;
+              z-index: 2;
+
+              .tab-label {
+                color: #333;
+              }
+            }
+          }
+        }
+
+        .side-panel-content {
+          width: 100%;
+          overflow-y: auto;
+          padding: 20px;
+          background-color: rgba(255, 255, 255, 0.95);
+          border-left: 0.5px solid #333333;
+          color: #333;
+          transition: opacity 0.3s ease;
+          backdrop-filter: blur(5px);
+
+          .panel-section {
+            display: none;
+
+            &.active {
+              display: block;
+            }
+
+            h3 {
+              color: #333;
+              font-size: 1.2rem;
+              margin-top: 0;
+              margin-bottom: 1rem;
+              border-bottom: 1px solid #ccc;
+              padding-bottom: 0.5rem;
+            }
+
+            h4 {
+              margin: .4rem 0 .2rem;
+              font-size: 1rem;
+              font-weight: 700;
+              position: relative;
+            }
+
+            .filterbox {
+              margin: 0 .5rem;
+            }
+
+            ul {
+              list-style-type: none;
+              padding-left: 0;
+              margin: 0.1rem 0;
+
+              li {
+                margin: 0 0 .2rem;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    h2 {
+      color: $text-color;
+      font-size: 1.5rem;
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    h3 {
+      color: $text-color;
+      font-size: 1.25rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    a[data-spa-link] {
+      color: $brand-color;
+      text-decoration: underline;
+      cursor: pointer;
+
+      &:hover {
+        color: color.adjust($brand-color, $lightness: -15%);
+      }
+    }
+
+    .item-details {
+      background-color: $grey-color-light;
+      padding: 1.5rem;
+      border-radius: 4px;
+      margin-top: 2rem;
+
+      code {
+        background-color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 3px;
+        font-family: monospace;
+      }
+    }
+
+    .demo-controls {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin: 1rem 0;
+
+      button {
+        background-color: $brand-color;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: background-color 0.2s ease;
+
+        &:hover {
+          background-color: color.adjust($brand-color, $lightness: -10%);
+        }
+
+        &:active {
+          transform: translateY(1px);
+        }
+      }
+    }
+  }
+}
+
+// Fade-in animation
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Section component (if used)
+vide-facs-section {
+  display: block;
+}
+
+// Responsive design
+@media screen and (max-width: $mobile-width) {
+  vide-facs-nav {
+    .spa-nav {
+      gap: 0.75rem;
+
+      a {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.9rem;
+      }
+    }
+  }
+
+  vide-facs-content {
+    .spa-view {
+      .demo-controls {
+        flex-direction: column;
+
+        button {
+          width: 100%;
+        }
+      }
+    }
+  }
+}
