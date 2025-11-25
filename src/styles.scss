@@ -1,4 +1,4 @@
-// ...existing code from Website/assets/js/vide-facs/styles.scss will be placed here...@use 'sass:color';
+@use 'sass:color';
 // Digital Facsimile SPA Island Styles - Web Components
 //
 // This file contains all styles specific to the Digital Facsimile SPA island components.
@@ -54,7 +54,7 @@ vide-facs-nav {
         color: white;
 
         &:hover {
-          background-color: $brand-color;
+          background-color: color.adjust($brand-color, $lightness: -10%);
           color: white;
         }
       }
@@ -430,7 +430,7 @@ vide-facs-content {
       cursor: pointer;
 
       &:hover {
-        color: $brand-color;
+        color: color.adjust($brand-color, $lightness: -15%);
       }
     }
 
@@ -465,7 +465,7 @@ vide-facs-content {
         transition: background-color 0.2s ease;
 
         &:hover {
-          background-color: $brand-color;
+          background-color: color.adjust($brand-color, $lightness: -10%);
         }
 
         &:active {
