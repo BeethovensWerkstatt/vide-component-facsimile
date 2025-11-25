@@ -1,21 +1,21 @@
 /**
- * Digital Facsimile - Main Entry Point
+ * VideFacs - Digital Facsimile Web Component
  * 
- * A single-page application (SPA) island built with Web Components and the History API.
- * Provides SPA-like navigation with clean URLs and browser history support.
+ * A reusable web component for displaying digital facsimiles with OpenSeadragon.
+ * Single-page application (SPA) with History API routing.
  * 
  * Requirements: Web server (does not work with file:// protocol)
  * 
  * Usage:
- *   <script type="module" src="assets/js/vide-facs/index.js"></script>
+ *   <link rel="stylesheet" href="vide-component-facsimile/dist/vide-facs.css">
+ *   <vide-facs></vide-facs>
+ *   <script type="module" src="vide-component-facsimile/dist/vide-facs.js"></script>
  */
 
-import { VideFacs } from '../../../vide-component-facsimile/src/vide-facs.js';
-import { VideFacsNav } from '../../../vide-component-facsimile/src/vide-facs-nav.js';
-import { VideFacsRouter } from '../../../vide-component-facsimile/src/vide-facs-router.js';
-// CSS is loaded via <link> in HTML, not imported in JS
-
-// Load component styles
+import { VideFacs } from './vide-facs.js';
+import { VideFacsNav } from './vide-facs-nav.js';
+import { VideFacsContent } from './vide-facs-content.js';
+import { VideFacsRouter } from './vide-facs-router.js';
 
 // Make VideFacsRouter globally accessible for programmatic navigation
 window.VideFacsRouter = VideFacsRouter;
@@ -28,7 +28,14 @@ if (!customElements.get('vide-facs')) {
 if (!customElements.get('vide-facs-nav')) {
   customElements.define('vide-facs-nav', VideFacsNav);
 }
+if (!customElements.get('vide-facs-content')) {
+  customElements.define('vide-facs-content', VideFacsContent);
+}
+if (!customElements.get('vide-facs-router')) {
+  customElements.define('vide-facs-router', VideFacsRouter);
+}
 
-// Router is initialized by VideFacs component when it connects
-// Make it globally accessible for demo buttons
-window.router = null;
+console.log('[VideFacs] Component loaded successfully');
+
+// Export for programmatic usage
+export { VideFacs, VideFacsNav, VideFacsContent, VideFacsRouter };

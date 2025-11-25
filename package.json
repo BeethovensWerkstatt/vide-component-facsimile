@@ -10,7 +10,8 @@
     "package.json"
   ],
   "scripts": {
-    "build": "npm run build:css && mkdir -p dist && cp src/vide-facs.js dist/vide-facs.js",
+    "build": "npm run build:js && npm run build:css",
+    "build:js": "mkdir -p dist && cp -r src/* dist/",
     "build:css": "mkdir -p dist && sass src/styles.scss dist/vide-facs.css --no-source-map",
     "watch:css": "sass src/styles.scss src/styles.css --no-source-map --watch",
     "prepare": "npm run build"
