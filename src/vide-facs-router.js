@@ -141,45 +141,59 @@ export class VideFacsRouter {
   }
 
   /**
-   * Load IIIF manifest and render pages
+   * Load edition data and render pages
    * @param {string} manifestId - Manifest identifier (e.g., 'NK')
    * @param {string} pageSpec - Page specification (e.g., '2' or '2-3'), defaults to first page
    */
   async loadManifestAndRender(manifestId, pageSpec = null) {
-    // Map manifest IDs to URLs
-    const manifestUrls = {
-      'NK': 'https://api.beethovens-werkstatt.de/iiif/document/r24d1c005-acee-43a0-acfa-5dae796b7ec4/manifest.json'
+    // Map manifest IDs to edition data URLs
+    const editionUrls = {
+      'NK': '/temp/edition.json'
     }
 
-    const manifestUrl = manifestUrls[manifestId]
-    if (!manifestUrl) {
+    const editionUrl = editionUrls[manifestId]
+    if (!editionUrl) {
       this.renderNotFound(`/facs/${manifestId}/`)
       return
     }
 
     try {
       // Show loading state
-      this.contentEl.setContent(templates.loading('Loading manifest...'))
+      this.contentEl.setContent(templates.loading('Loading edition data...'))
 
-      // Fetch manifest
-      const response = await fetch(manifestUrl)
-      if (!response.ok) throw new Error(`Failed to load manifest: ${response.status}`)
+      // Fetch edition data
+      const response = await fetch(editionUrl)
+      if (!response.ok) throw new Error(`Failed to load edition data: ${response.status}`)
 
-      const manifest = await response.json()
-      this.currentManifest = manifest
+      const editionData = await response.json()
+      
+      // Extract the actual data (skip HTTP headers at indices 0-3, data is in array at index 4)
+      // The structure is: [header, header, header, header, [actualData]]
+      const dataArray = editionData.find(item => Array.isArray(item) && item.length > 0)
+      if (!dataArray) throw new Error('Invalid edition data structure')
+      
+      const sourceData = dataArray[0]
+      this.currentEdition = sourceData
+      this.currentPages = sourceData.source.pages
 
       // Parse page specification
-      const pages = this.parsePageSpec(pageSpec, manifest)
+      const pages = this.parsePageSpec(pageSpec)
 
       // Render viewer with pages
       this.renderViewer(pages)
+      
+      // Setup previews immediately after rendering (independent of OSD viewer)
+      setTimeout(() => {
+        const currentPageIndices = pages.map(p => this.currentPages.indexOf(p) + 1)
+        this.setupPagePreviews(currentPageIndices)
+      }, 100)
 
     } catch (error) {
-      console.error('Error loading manifest:', error)
+      console.error('Error loading edition data:', error)
       this.contentEl.setContent(
         templates.error(
-          'Error Loading Manifest',
-          `Could not load manifest: ${error.message}`,
+          'Error Loading Edition Data',
+          `Could not load edition data: ${error.message}`,
           `${this.basePath}/`
         )
       )
@@ -187,30 +201,29 @@ export class VideFacsRouter {
   }
 
   /**
-   * Parse page specification and return canvas objects
+   * Parse page specification and return page objects
    * @param {string|null} pageSpec - Page specification ('2' or '2-3')
-   * @param {object} manifest - IIIF manifest
-   * @returns {Array} Array of canvas objects
+   * @returns {Array} Array of page objects from edition data
    */
-  parsePageSpec(pageSpec, manifest) {
-    const canvases = manifest.sequences[0].canvases
+  parsePageSpec(pageSpec) {
+    if (!this.currentPages) return []
 
     if (!pageSpec) {
       // Default to first page
-      return [canvases[0]]
+      return [this.currentPages[0]]
     }
 
     if (pageSpec.includes('-')) {
       // Double page view: '2-3'
       const [left, right] = pageSpec.split('-').map(n => parseInt(n, 10))
       return [
-        canvases[left - 1],
-        canvases[right - 1]
-      ].filter(c => c) // Filter out undefined
+        this.currentPages[left - 1],
+        this.currentPages[right - 1]
+      ].filter(p => p) // Filter out undefined
     } else {
       // Single page view: '2'
       const pageNum = parseInt(pageSpec, 10)
-      return [canvases[pageNum - 1]].filter(c => c)
+      return [this.currentPages[pageNum - 1]].filter(p => p)
     }
   }
 
@@ -257,17 +270,11 @@ export class VideFacsRouter {
 
     const pages = this.pagesToLoad || []
 
-    // Build tileSources from IIIF canvases
-    const tileSources = pages.map(canvas => {
-      // Get the first image from the canvas
-      const image = canvas.images[0]
-      const resource = image.resource
-
-      // Use IIIF Image API info.json URL
-      if (resource['@id']) {
-        return resource.service['@id'] + '/info.json'
-      }
-      return null
+    // Build tileSources from edition page objects
+    const tileSources = pages.map(page => {
+      // Extract base URL from target (remove file extension) and add /info.json
+      const baseUrl = page.target.replace(/\.(jpg|tif|tiff)$/i, '')
+      return baseUrl + '/info.json'
     }).filter(ts => ts)
 
     if (tileSources.length === 0) {
@@ -275,13 +282,12 @@ export class VideFacsRouter {
       return
     }
 
-    // Store manifest info for navigation
-    const manifest = this.currentManifest
-    const totalPages = manifest.sequences[0].canvases.length
+    // Store page info for navigation
+    const totalPages = this.currentPages.length
 
     // Determine current page(s) from pages array
     const currentPageIndices = pages.map(p =>
-      manifest.sequences[0].canvases.indexOf(p) + 1
+      this.currentPages.indexOf(p) + 1
     )
 
     // For double-page view, use multi-image layout with side-by-side positioning
@@ -430,6 +436,23 @@ export class VideFacsRouter {
   }
 
   /**
+   * Get IIIF thumbnail URL for a page from edition data
+   * @param {Object} page - Page object from edition.json
+   * @returns {string} IIIF image URL for thumbnail
+   */
+  getIIIFThumbnail(page) {
+    // Extract base URL from target (remove file extension)
+    const baseUrl = page.target.replace(/\.(jpg|tif|tiff)$/i, '')
+    
+    // Get xywh region from px data
+    const { x, y, w, h } = page.px.xywh
+    const region = `${x},${y},${w},${h}`
+    
+    // Return IIIF thumbnail URL with region
+    return `${baseUrl}/${region}/,90/0/default.jpg`
+  }
+
+  /**
    * Setup page preview panel with thumbnails
    * @param {Array} currentPages - Array of current page numbers
    */
@@ -438,17 +461,18 @@ export class VideFacsRouter {
     const panel = document.getElementById('page-preview-panel')
     const toggleBtn = document.getElementById('toggle-preview')
 
-    if (!container || !this.currentManifest) return
+    if (!container || !this.currentPages) return
 
-    const canvases = this.currentManifest.sequences[0].canvases
+    const pages = this.currentPages
     const manifestId = this.getCurrentManifestId()
+    const sourceLabel = this.currentEdition?.source?.label || ''
 
     // Clear existing thumbnails
     container.innerHTML = ''
 
     // Generate thumbnail groups: first page alone, then pairs
     let i = 0
-    while (i < canvases.length) {
+    while (i < pages.length) {
       const groupDiv = document.createElement('div')
       groupDiv.classList.add('page-thumbnail-group')
 
@@ -456,7 +480,7 @@ export class VideFacsRouter {
         // First page alone
         const pageNum = 1
         const isActive = currentPages.includes(1)
-        const thumbnail = canvases[0].images[0].resource.service['@id'] + '/full/,90/0/default.jpg'
+        const thumbnail = this.getIIIFThumbnail(pages[0])
 
         const img = document.createElement('img')
         img.src = thumbnail
@@ -465,7 +489,7 @@ export class VideFacsRouter {
 
         const label = document.createElement('div')
         label.className = 'page-label'
-        label.textContent = '1'
+        label.textContent = sourceLabel ? `${sourceLabel} 1` : '1'
 
         groupDiv.appendChild(img)
         groupDiv.appendChild(label)
@@ -487,10 +511,10 @@ export class VideFacsRouter {
         // Pair of pages (verso + recto)
         const leftPage = i + 1
         const rightPage = i + 2
-        const isActive = currentPages.includes(leftPage) || (canvases[i + 1] && currentPages.includes(rightPage))
+        const isActive = currentPages.includes(leftPage) || (pages[i + 1] && currentPages.includes(rightPage))
 
-        if (canvases[i]) {
-          const leftThumb = canvases[i].images[0].resource.service['@id'] + '/full/,90/0/default.jpg'
+        if (pages[i]) {
+          const leftThumb = this.getIIIFThumbnail(pages[i])
           const leftImg = document.createElement('img')
           leftImg.src = leftThumb
           leftImg.alt = `Seite ${leftPage}`
@@ -498,8 +522,8 @@ export class VideFacsRouter {
           groupDiv.appendChild(leftImg)
         }
 
-        if (canvases[i + 1]) {
-          const rightThumb = canvases[i + 1].images[0].resource.service['@id'] + '/full/,90/0/default.jpg'
+        if (pages[i + 1]) {
+          const rightThumb = this.getIIIFThumbnail(pages[i + 1])
           const rightImg = document.createElement('img')
           rightImg.src = rightThumb
           rightImg.alt = `Seite ${rightPage}`
@@ -509,12 +533,14 @@ export class VideFacsRouter {
 
         const label = document.createElement('div')
         label.className = 'page-label'
-        if (canvases[i + 1]) {
-          label.textContent = `${leftPage}-${rightPage}`
+        if (pages[i + 1]) {
+          const labelText = sourceLabel ? `${sourceLabel} ${leftPage}-${rightPage}` : `${leftPage}-${rightPage}`
+          label.textContent = labelText
           groupDiv.dataset.pages = `${leftPage}-${rightPage}`
           groupDiv.dataset.pageCount = 'double'
         } else {
-          label.textContent = `${leftPage}`
+          const labelText = sourceLabel ? `${sourceLabel} ${leftPage}` : `${leftPage}`
+          label.textContent = labelText
           groupDiv.dataset.pages = `${leftPage}`
           groupDiv.dataset.pageCount = 'single'
         }

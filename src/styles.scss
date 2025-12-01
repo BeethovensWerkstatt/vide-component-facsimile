@@ -146,7 +146,8 @@ vide-facs-content {
             position: relative;
             height: 90px;
             z-index: 1;
-            overflow: hidden;
+            overflow-y: visible; // Allow label to overflow vertically
+            overflow-x: hidden;  // Keep images clipped horizontally
             white-space: nowrap;
             vertical-align: top;
 
@@ -197,7 +198,7 @@ vide-facs-content {
             .page-label {
               position: absolute;
               left: 4px;
-              top: 50%;
+              top: 90%;
               transform: translateY(-50%) rotate(-90deg);
               transform-origin: left center;
               padding: 2px 6px;
@@ -207,6 +208,8 @@ vide-facs-content {
               white-space: nowrap;
               pointer-events: none;
               font-weight: 600;
+              max-width: none;
+              width: max-content;
             }
           }
         }
