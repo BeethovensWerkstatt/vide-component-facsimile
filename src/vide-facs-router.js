@@ -265,7 +265,7 @@ export class VideFacsRouter {
    * @param {boolean} hideCenter - Whether to hide center margins
    * @returns {Object} OpenSeadragon.Rect for clipping in pixel coordinates
    */
-  calculateClipRect(page, hideCenter = false) {
+  calculateClipRect(page, hideCenter = false, tiledImage, viewer) {
     const { px, position } = page
     const { xywh, width: pxWidth, height: pxHeight } = px
     const isVerso = position.includes('verso')
@@ -293,11 +293,11 @@ export class VideFacsRouter {
       clipY = 0
       clipW = xywh.x + xywh.w  // Up to right edge of page (= world x=0)
       clipH = pxHeight
-    } else {
+    } else { // TODO: this is still not correct
       // Recto: keep from left edge of page content to right edge of image
-      clipX = xywh.x  // Start at left edge of page (= world x=0)
+      clipX = (xywh.x + xywh.w) * -1
       clipY = 0
-      clipW = pxWidth - xywh.x  // From page start to end of image
+      clipW = xywh.x + xywh.w  // Up to right edge of page (= world x=0)
       clipH = pxHeight
     }
     
@@ -913,7 +913,7 @@ export class VideFacsRouter {
             if (tiledImage) {
               if (hideCenter) {
                 // Calculate the clip rect in image pixel coordinates
-                const clipRect = this.calculateClipRect(page, true)
+                const clipRect = this.calculateClipRect(page, true, tiledImage, this.viewer)
                 console.log(`Page ${index + 1} (${page.position}) clipping enabled:`, clipRect)
                 tiledImage.setClip(clipRect)
               } else {
