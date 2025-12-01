@@ -250,7 +250,7 @@ export class VideFacsRouter {
     // Load OpenSeadragon if not already loaded
     if (typeof OpenSeadragon === 'undefined') {
       const script = document.createElement('script')
-      script.src = '/assets/js/vendor/openseadragon/openseadragon.min.js'
+      script.src = '/vide-component-facsimile/dist/vendor/openseadragon/openseadragon.min.js'
       script.onload = () => this.createViewer()
       document.head.appendChild(script)
     } else {
@@ -276,30 +276,22 @@ export class VideFacsRouter {
     }
     
     // Clip to hide center margins only
-    // In world space (mm), the center line is at x=0
-    // For verso: page right edge is at x=0 in world space, keep everything left of that
-    // For recto: page left edge is at x=0 in world space, keep everything right of that
-    
-    // In image pixel space:
-    // - xywh defines the page content area within the full scan
-    // - For verso: clip from (0, 0) to right edge of xywh (xywh.x + xywh.w)
-    // - For recto: clip from left edge of xywh (xywh.x) to right edge of image (pxWidth)
-    
-    let clipX, clipY, clipW, clipH
+    // Since recto pages are rendered on top of verso pages, we only need to clip recto
+    // The verso center margin will be naturally hidden by the overlapping recto page
     
     if (isVerso) {
-      // Verso: keep from left edge to right edge of page content
-      clipX = 0
-      clipY = 0
-      clipW = xywh.x + xywh.w  // Up to right edge of page (= world x=0)
-      clipH = pxHeight
-    } else { // TODO: this is still not correct
-      // Recto: keep from left edge of page content to right edge of image
-      clipX = (xywh.x + xywh.w) * -1
-      clipY = 0
-      clipW = xywh.x + xywh.w  // Up to right edge of page (= world x=0)
-      clipH = pxHeight
+      // Verso: no clipping needed, center margin hidden by recto overlay
+      return null
     }
+    
+    // Recto: clip the left/center margin, keep page content and right margin
+    // In image pixel space:
+    // - xywh.x is where page content starts (= world x=0)
+    // - Keep everything from xywh.x to the right edge of the image
+    const clipX = xywh.x
+    const clipY = 0
+    const clipW = pxWidth - xywh.x
+    const clipH = pxHeight
     
     return new OpenSeadragon.Rect(clipX, clipY, clipW, clipH)
   }
@@ -437,9 +429,7 @@ export class VideFacsRouter {
     // Initialize viewer with empty world (we'll add images programmatically)
     this.viewer = OpenSeadragon({
       id: 'openseadragon-viewer',
-      prefixUrl: '/assets/js/vendor/openseadragon/images/',
-      crossOriginPolicy: 'Anonymous',
-      ajaxWithCredentials: false,
+      prefixUrl: '/vide-component-facsimile/dist/vendor/openseadragon/images/',
       showNavigationControl: false,
       showFullPageControl: false,
       sequenceMode: false,
@@ -453,15 +443,15 @@ export class VideFacsRouter {
       },
       // Increase timeouts and be more patient with loading
       timeout: 120000, // 2 minutes
-      loadTilesWithAjax: true,
-      ajaxHeaders: {
-        'Accept': 'application/json,image/*'
-      },
       // Load more tiles at once
       immediateRender: false,
       maxImageCacheCount: 200,
       // Be more aggressive about loading
-      preload: true
+      preload: true,
+      // OSD v5 specific: reduce assertion strictness during navigation
+      debugMode: false,
+      // Silently ignore getTileAtPoint errors during navigation
+      silenceMultiImageWarnings: true
     })
 
     // Store pages and world bounds for later use (e.g., toggling margins)
@@ -914,11 +904,17 @@ export class VideFacsRouter {
               if (hideCenter) {
                 // Calculate the clip rect in image pixel coordinates
                 const clipRect = this.calculateClipRect(page, true, tiledImage, this.viewer)
-                console.log(`Page ${index + 1} (${page.position}) clipping enabled:`, clipRect)
+                /* const isVerso = page.position.includes('verso')
+                console.log(`Page ${index + 1} (${page.position}, isVerso=${isVerso}):`, {
+                  clipRect,
+                  xywh: page.px.xywh,
+                  pxWidth: page.px.width,
+                  pxHeight: page.px.height
+                }) */
                 tiledImage.setClip(clipRect)
               } else {
                 // Remove clipping by passing null
-                console.log(`Page ${index + 1} (${page.position}) clipping disabled`)
+                // console.log(`Page ${index + 1} (${page.position}) clipping disabled`)
                 tiledImage.setClip(null)
               }
             }
