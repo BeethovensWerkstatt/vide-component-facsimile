@@ -49,6 +49,7 @@ export const templates = {
   viewerControls: () => `
     <div class="viewer-overlay-controls">
       <button id="toggle-preview" class="control-button" title="Seitennavigation ein-/ausblenden">▲</button>
+      <button id="toggle-margins" class="control-button" title="Ränder ein-/ausblenden">⬌</button>
       <button id="zoom-out" class="control-button" title="Zoom out">−</button>
       <button id="zoom-in" class="control-button" title="Zoom in">+</button>
       <button id="prev-page" class="control-button" title="Previous page">&lt;</button>

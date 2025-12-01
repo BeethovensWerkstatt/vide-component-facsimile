@@ -259,6 +259,126 @@ export class VideFacsRouter {
   }
 
   /**
+   * Calculate clip rectangle to hide center margins using setClip
+   * The clip rect needs to be in IMAGE PIXEL coordinates
+   * @param {Object} page - Page object from edition.json
+   * @param {boolean} hideCenter - Whether to hide center margins
+   * @returns {Object} OpenSeadragon.Rect for clipping in pixel coordinates
+   */
+  calculateClipRect(page, hideCenter = false) {
+    const { px, position } = page
+    const { xywh, width: pxWidth, height: pxHeight } = px
+    const isVerso = position.includes('verso')
+    
+    if (!hideCenter) {
+      // No clipping - return null
+      return null
+    }
+    
+    // Clip to hide center margins only
+    // In world space (mm), the center line is at x=0
+    // For verso: page right edge is at x=0 in world space, keep everything left of that
+    // For recto: page left edge is at x=0 in world space, keep everything right of that
+    
+    // In image pixel space:
+    // - xywh defines the page content area within the full scan
+    // - For verso: clip from (0, 0) to right edge of xywh (xywh.x + xywh.w)
+    // - For recto: clip from left edge of xywh (xywh.x) to right edge of image (pxWidth)
+    
+    let clipX, clipY, clipW, clipH
+    
+    if (isVerso) {
+      // Verso: keep from left edge to right edge of page content
+      clipX = 0
+      clipY = 0
+      clipW = xywh.x + xywh.w  // Up to right edge of page (= world x=0)
+      clipH = pxHeight
+    } else {
+      // Recto: keep from left edge of page content to right edge of image
+      clipX = xywh.x  // Start at left edge of page (= world x=0)
+      clipY = 0
+      clipW = pxWidth - xywh.x  // From page start to end of image
+      clipH = pxHeight
+    }
+    
+    return new OpenSeadragon.Rect(clipX, clipY, clipW, clipH)
+  }
+
+  /**
+   * Calculate positioning for a page in mm coordinate space
+   * @param {Object} page - Page object from edition.json
+   * @returns {Object} Object with tileSource, x, y, width, degrees for OSD addTiledImage
+   */
+  calculatePagePosition(page) {
+    // Extract data from page
+    const { target, px, mm, position } = page
+    const { xywh, rotation, width: pxWidth, height: pxHeight } = px
+    const { width: mmWidth, height: mmHeight } = mm
+    
+    // Determine if this is a verso (left) or recto (right) page
+    const isVerso = position.includes('verso')
+    
+    // Calculate scale factor from pixels to millimeters
+    // The mm dimensions refer to the page content (after rotation, inside xywh)
+    // We need to figure out the mm dimensions of the full image
+    const pageWidthPx = xywh.w
+    const pageHeightPx = xywh.h
+    
+    // Scale factor: mm per pixel (using the page dimensions as reference)
+    const mmPerPx = mmWidth / pageWidthPx
+    
+    // Full image dimensions in mm
+    const fullImageWidthMm = pxWidth * mmPerPx
+    const fullImageHeightMm = pxHeight * mmPerPx
+    
+    // Center of xywh rect in pixels (relative to full image)
+    const xywhCenterPxX = xywh.x + xywh.w / 2
+    const xywhCenterPxY = xywh.y + xywh.h / 2
+    
+    // Center of xywh rect in mm (relative to full image origin)
+    const xywhCenterMmX = xywhCenterPxX * mmPerPx
+    const xywhCenterMmY = xywhCenterPxY * mmPerPx
+    
+    // The page content (mm dimensions) is centered within the xywh rect after rotation
+    // Position the page so its inner edge aligns at x=0
+    let pageTargetX
+    if (isVerso) {
+      // Verso page: right edge at x=0, so position at negative x
+      pageTargetX = -mmWidth
+    } else {
+      // Recto page: left edge at x=0
+      pageTargetX = 0
+    }
+    
+    // Page top edge at y=0
+    const pageTargetY = 0
+    
+    // The page center in our target coordinate space
+    const pageCenterX = pageTargetX + mmWidth / 2
+    const pageCenterY = pageTargetY + mmHeight / 2
+    
+    // Now work backwards: the xywh center is where the page center is
+    // (since page is centered in xywh rect after rotation)
+    // The full image's origin needs to be positioned such that its xywh center
+    // ends up at pageCenterX, pageCenterY
+    
+    const imageX = pageCenterX - xywhCenterMmX
+    const imageY = pageCenterY - xywhCenterMmY
+    
+    // Build IIIF image URL
+    const baseUrl = target.replace(/\.(jpg|tif|tiff)$/i, '')
+    const tileSource = baseUrl + '/info.json'
+    
+    return {
+      tileSource,
+      x: imageX,
+      y: imageY,
+      width: fullImageWidthMm,
+      degrees: -rotation // Negate rotation to match coordinate system
+    }
+  }
+
+  /**
    * Create OpenSeadragon viewer instance
    */
   createViewer() {
@@ -270,15 +390,8 @@ export class VideFacsRouter {
 
     const pages = this.pagesToLoad || []
 
-    // Build tileSources from edition page objects
-    const tileSources = pages.map(page => {
-      // Extract base URL from target (remove file extension) and add /info.json
-      const baseUrl = page.target.replace(/\.(jpg|tif|tiff)$/i, '')
-      return baseUrl + '/info.json'
-    }).filter(ts => ts)
-
-    if (tileSources.length === 0) {
-      console.warn('No tile sources to display')
+    if (pages.length === 0) {
+      console.warn('No pages to display')
       return
     }
 
@@ -290,53 +403,107 @@ export class VideFacsRouter {
       this.currentPages.indexOf(p) + 1
     )
 
-    // For double-page view, use multi-image layout with side-by-side positioning
-    if (tileSources.length === 2) {
-      this.viewer = OpenSeadragon({
-        id: 'openseadragon-viewer',
-        prefixUrl: '/assets/js/vendor/openseadragon/images/',
-        crossOriginPolicy: 'Anonymous',
-        ajaxWithCredentials: false,
-        showNavigationControl: false,
-        showFullPageControl: false,
-        sequenceMode: false,
-        defaultZoomLevel: 0,
-        minZoomLevel: 0.5,
-        maxZoomLevel: 10,
-        visibilityRatio: 1.0,
-        constrainDuringPan: false,
-        tileSources: [{
-          tileSource: tileSources[0],
-          x: 0,
-          y: 0,
-          width: 0.5
-        }, {
-          tileSource: tileSources[1],
-          x: 0.5,
-          y: 0,
-          width: 0.5
-        }]
+    // Calculate total bounds for our coordinate space
+    // We need to know the extent of all pages to set up the world properly
+    let minX = Infinity
+    let maxX = -Infinity
+    let minY = Infinity
+    let maxY = -Infinity
+    
+    pages.forEach(page => {
+      const config = this.calculatePagePosition(page)
+      // Image bounds in our coordinate space
+      const imgMinX = config.x
+      const imgMaxX = config.x + config.width
+      const imgMinY = config.y
+      const imgMaxY = config.y + (config.width * (page.px.height / page.px.width)) // maintain aspect ratio
+      
+      minX = Math.min(minX, imgMinX)
+      maxX = Math.max(maxX, imgMaxX)
+      minY = Math.min(minY, imgMinY)
+      maxY = Math.max(maxY, imgMaxY)
+    })
+    
+    // Add some padding
+    const padding = 50 // 50mm padding
+    minX -= padding
+    maxX += padding
+    minY -= padding
+    maxY += padding
+
+    // Store bounds for later use
+    const worldBounds = new OpenSeadragon.Rect(minX, minY, maxX - minX, maxY - minY)
+    
+    // Initialize viewer with empty world (we'll add images programmatically)
+    this.viewer = OpenSeadragon({
+      id: 'openseadragon-viewer',
+      prefixUrl: '/assets/js/vendor/openseadragon/images/',
+      crossOriginPolicy: 'Anonymous',
+      ajaxWithCredentials: false,
+      showNavigationControl: false,
+      showFullPageControl: false,
+      sequenceMode: false,
+      // Use our mm coordinate space
+      homeFillsViewer: false,
+      visibilityRatio: 0.1,
+      constrainDuringPan: false,
+      showRotationControl: true,
+      gestureSettingsTouch: {
+        pinchRotate: true
+      },
+      // Increase timeouts and be more patient with loading
+      timeout: 120000, // 2 minutes
+      loadTilesWithAjax: true,
+      ajaxHeaders: {
+        'Accept': 'application/json,image/*'
+      },
+      // Load more tiles at once
+      immediateRender: false,
+      maxImageCacheCount: 200,
+      // Be more aggressive about loading
+      preload: true
+    })
+
+    // Store pages and world bounds for later use (e.g., toggling margins)
+    this.currentlyDisplayedPages = pages
+    this.currentWorldBounds = worldBounds
+
+    // Add each page with calculated positioning
+    pages.forEach((page, index) => {
+      const pageConfig = this.calculatePagePosition(page)
+      
+      this.viewer.addTiledImage({
+        tileSource: pageConfig.tileSource,
+        x: pageConfig.x,
+        y: pageConfig.y,
+        width: pageConfig.width,
+        degrees: pageConfig.degrees,
+        success: (event) => {
+          console.log(`Page ${index + 1} loaded successfully`)
+          
+          // After all pages are loaded, fit viewport to show both pages
+          if (index === pages.length - 1) {
+            // Fit to our calculated world bounds
+            this.viewer.viewport.fitBounds(worldBounds, true)
+            
+            // Calculate appropriate zoom constraints based on world size
+            // Min zoom: fit entire world with padding
+            const minZoom = this.viewer.viewport.getZoom() * 0.5
+            // Max zoom: allow zooming in to ~1:1 pixel ratio (1mm = multiple screen pixels)
+            const maxZoom = this.viewer.viewport.getZoom() * 20
+            
+            this.viewer.viewport.minZoomLevel = minZoom
+            this.viewer.viewport.maxZoomLevel = maxZoom
+            
+            // Re-fit after setting constraints
+            this.viewer.viewport.fitBounds(worldBounds, true)
+          }
+        },
+        error: (event) => {
+          console.error(`Error loading page ${index + 1}:`, event)
+        }
       })
-    } else {
-      /**
-       * Initialize Vorzeichnung slider label and update on input
-       */
-      // Single page view
-      this.viewer = OpenSeadragon({
-        id: 'openseadragon-viewer',
-        prefixUrl: '/assets/js/vendor/openseadragon/images/',
-        tileSources: tileSources[0],
-        crossOriginPolicy: 'Anonymous',
-        ajaxWithCredentials: false,
-        showNavigationControl: false,
-        showFullPageControl: false,
-        defaultZoomLevel: 0,
-        minZoomLevel: 0.5,
-        maxZoomLevel: 10,
-        visibilityRatio: 1.0,
-        constrainDuringPan: false
-      })
-    }
+    })
 
     // Store current page indices for navigation
     this.currentPageIndices = currentPageIndices
@@ -704,6 +871,7 @@ export class VideFacsRouter {
   setupZoomControls() {
     const zoomInBtn = document.getElementById('zoom-in')
     const zoomOutBtn = document.getElementById('zoom-out')
+    const toggleMarginsBtn = document.getElementById('toggle-margins')
     const openModalBtn = document.getElementById('open-modal')
     const closeModalBtn = document.getElementById('close-modal')
     const modal = document.getElementById('notebook-modal')
@@ -719,6 +887,43 @@ export class VideFacsRouter {
       zoomOutBtn.addEventListener('click', () => {
         this.viewer.viewport.zoomBy(0.7)
         this.viewer.viewport.applyConstraints()
+      })
+    }
+
+    // Toggle margin clipping
+    if (toggleMarginsBtn) {
+      toggleMarginsBtn.addEventListener('click', () => {
+        // Toggle the clipping state
+        this.clipMargins = !this.clipMargins
+        
+        // Update button appearance
+        if (this.clipMargins) {
+          toggleMarginsBtn.classList.add('active')
+        } else {
+          toggleMarginsBtn.classList.remove('active')
+        }
+        
+        // Apply clipping to existing TiledImages using setClip
+        if (this.viewer && this.currentlyDisplayedPages) {
+          const pages = this.currentlyDisplayedPages
+          const hideCenter = this.clipMargins
+          
+          pages.forEach((page, index) => {
+            const tiledImage = this.viewer.world.getItemAt(index)
+            if (tiledImage) {
+              if (hideCenter) {
+                // Calculate the clip rect in image pixel coordinates
+                const clipRect = this.calculateClipRect(page, true)
+                console.log(`Page ${index + 1} (${page.position}) clipping enabled:`, clipRect)
+                tiledImage.setClip(clipRect)
+              } else {
+                // Remove clipping by passing null
+                console.log(`Page ${index + 1} (${page.position}) clipping disabled`)
+                tiledImage.setClip(null)
+              }
+            }
+          })
+        }
       })
     }
 
