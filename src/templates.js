@@ -140,17 +140,7 @@ export const templates = {
         <div class="panel-section active" data-panel="zones">
           <button id="show-filter-btn" class="filter-btn">Filter</button>
           <ul class="zones-list">
-            <li class="zone-item" data-zone="NK 1/1">NK 1/1</li>
-            <li class="zone-item" data-zone="NK 1/2">NK 1/2</li>
-            <li class="zone-item" data-zone="NK 1/3">NK 1/3</li>
-            <li class="zone-item" data-zone="NK 1/4">NK 1/4</li>
-            <li class="zone-item" data-zone="NK 1/5">NK 1/5</li>
-            <li class="zone-item" data-zone="NK 1/6">NK 1/6</li>
-            <li class="zone-item" data-zone="NK 1/7">NK 1/7</li>
-            <li class="zone-item" data-zone="NK 1/8">NK 1/8</li>
-            <li class="zone-item" data-zone="NK 1/9">NK 1/9</li>
-            <li class="zone-item" data-zone="NK 1/10">NK 1/10</li>
-            <li class="zone-item" data-zone="NK 1/11">NK 1/11</li>
+            <!-- Writing zones will be populated dynamically -->
           </ul>
         </div>
         <!-- Panel 2: Filter Panel -->

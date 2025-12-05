@@ -92,11 +92,6 @@ export class VideFacsRouter {
    * @param {string} path - Current path
    */
   route(path) {
-    // Clean up OpenSeadragon viewer if navigating away
-    if (this.viewer && this.currentRoute !== path) {
-      this.cleanupViewer()
-    }
-
     // Store current route
     this.currentRoute = path
 
@@ -106,8 +101,10 @@ export class VideFacsRouter {
     // Route patterns:
     // /facs/ -> redirect to /facs/NK/
     // /facs/NK/ -> load manifest NK, show first page
-    // /facs/NK/2/ -> load manifest NK, show page 2
-    // /facs/NK/2-3/ -> load manifest NK, show pages 2-3 side by side
+    // /facs/NK/p2/ -> load manifest NK, show page 2
+    // /facs/NK/p2-3/ -> load manifest NK, show pages 2-3 side by side
+    // /facs/NK/p2/wz2.5/ -> load manifest NK, page 2, highlight zone 5
+    // /facs/NK/p8-9/wz9.1/ -> load manifest NK, pages 8-9, highlight zone 1 on page 9
 
     if (segments.length === 0) {
       // /facs/ - redirect to NK manifest
@@ -115,12 +112,43 @@ export class VideFacsRouter {
     } else if (segments.length === 1) {
       // /facs/NK/ - load manifest and show first page
       const manifestId = segments[0]
+      // Clean up viewer when changing manifest
+      if (this.viewer && this.currentManifestId !== manifestId) {
+        this.cleanupViewer()
+      }
       this.loadManifestAndRender(manifestId)
     } else if (segments.length === 2) {
-      // /facs/NK/2/ or /facs/NK/2-3/
+      // /facs/NK/p2/ or /facs/NK/p2-3/
       const manifestId = segments[0]
-      const pageSpec = segments[1]
+      const pageSpec = segments[1].startsWith('p') ? segments[1].substring(1) : segments[1]
+      // Clean up viewer when changing manifest or page
+      if (this.viewer && (this.currentManifestId !== manifestId || this.currentPageSpec !== pageSpec)) {
+        this.cleanupViewer()
+      }
       this.loadManifestAndRender(manifestId, pageSpec)
+    } else if (segments.length === 3) {
+      // /facs/NK/p2/wz2.5/ - page with zone
+      const manifestId = segments[0]
+      const pageSpec = segments[1].startsWith('p') ? segments[1].substring(1) : segments[1]
+      const zoneSpec = segments[2].startsWith('wz') ? segments[2].substring(2) : segments[2]
+      // Parse zone spec: "9.1" -> page 9, zone label "1"
+      const [zonePageStr, zoneLabel] = zoneSpec.split('.')
+      const zonePageIndex = parseInt(zonePageStr, 10)
+      
+      // Check if we're staying on the same page spread - if so, just update the active zone
+      if (this.currentManifestId === manifestId && this.currentPageSpec === pageSpec && this.viewer) {
+        // Same page spread, just update zone highlight
+        console.log('Zone-only navigation - not reloading viewer')
+        this.updateActiveZone(zoneLabel, zonePageIndex)
+      } else {
+        // Different page or no viewer yet, full reload
+        console.log('Full reload needed - manifest, page, or viewer changed')
+        // Clean up viewer when changing manifest or page
+        if (this.viewer) {
+          this.cleanupViewer()
+        }
+        this.loadManifestAndRender(manifestId, pageSpec, zoneLabel, zonePageIndex)
+      }
     } else {
       this.renderNotFound(path)
     }
@@ -144,8 +172,10 @@ export class VideFacsRouter {
    * Load edition data and render pages
    * @param {string} manifestId - Manifest identifier (e.g., 'NK')
    * @param {string} pageSpec - Page specification (e.g., '2' or '2-3'), defaults to first page
+   * @param {string} zoneLabel - Writing zone label (e.g., '5'), optional
+   * @param {number} zonePageIndex - Page index for the zone (1-based), optional
    */
-  async loadManifestAndRender(manifestId, pageSpec = null) {
+  async loadManifestAndRender(manifestId, pageSpec = null, zoneLabel = null, zonePageIndex = null) {
     // Map manifest IDs to edition data URLs
     const editionUrls = {
       'NK': '/temp/edition.json'
@@ -175,6 +205,10 @@ export class VideFacsRouter {
       const sourceData = dataArray[0]
       this.currentEdition = sourceData
       this.currentPages = sourceData.source.pages
+      this.currentManifestId = manifestId
+      this.currentPageSpec = pageSpec
+      this.currentZoneLabel = zoneLabel
+      this.currentZonePageIndex = zonePageIndex
 
       // Parse page specification
       const pages = this.parsePageSpec(pageSpec)
@@ -509,6 +543,9 @@ export class VideFacsRouter {
 
     // Setup side panel
     this.setupSidePanel()
+
+    // Setup writing zones list
+    this.setupWritingZones(currentPageIndices)
   }
 
   /**
@@ -567,7 +604,7 @@ export class VideFacsRouter {
     if (prevPageSpec) {
       prevBtn.disabled = false
       prevBtn.onclick = () => {
-        this.navigate(`${this.basePath}/${manifestId}/${prevPageSpec}/`)
+        this.navigate(`${this.basePath}/${manifestId}/p${prevPageSpec}/`)
       }
     } else {
       prevBtn.disabled = true
@@ -576,7 +613,7 @@ export class VideFacsRouter {
     if (nextPageSpec) {
       nextBtn.disabled = false
       nextBtn.onclick = () => {
-        this.navigate(`${this.basePath}/${manifestId}/${nextPageSpec}/`)
+        this.navigate(`${this.basePath}/${manifestId}/p${nextPageSpec}/`)
       }
     } else {
       nextBtn.disabled = true
@@ -660,7 +697,7 @@ export class VideFacsRouter {
 
         // Click handler
         groupDiv.addEventListener('click', () => {
-          this.navigate(`${this.basePath}/${manifestId}/1/`)
+          this.navigate(`${this.basePath}/${manifestId}/p1/`)
         })
 
         i++
@@ -712,7 +749,7 @@ export class VideFacsRouter {
         // Click handler
         groupDiv.addEventListener('click', () => {
           const pageSpec = groupDiv.dataset.pages
-          this.navigate(`${this.basePath}/${manifestId}/${pageSpec}/`)
+          this.navigate(`${this.basePath}/${manifestId}/p${pageSpec}/`)
         })
 
         i += 2
@@ -852,6 +889,144 @@ export class VideFacsRouter {
           }
         }
       })
+    })
+  }
+
+  /**
+   * Setup writing zones list from current pages
+   * @param {Array} currentPageIndices - Array of current page numbers
+   */
+  setupWritingZones(currentPageIndices = [1]) {
+    const zonesList = document.querySelector('.zones-list')
+    if (!zonesList || !this.currentPages || !this.currentEdition) return
+
+    const manifestId = this.getCurrentManifestId()
+    const sourceLabel = this.currentEdition.source.label
+
+    // Clear existing zones
+    zonesList.innerHTML = ''
+
+    // Collect all writing zones from currently displayed pages
+    currentPageIndices.forEach(pageIndex => {
+      const page = this.currentPages[pageIndex - 1]
+      if (!page || !page.writingZones) return
+
+      page.writingZones.forEach(zone => {
+        const li = document.createElement('li')
+        li.className = 'zone-item'
+        
+        // Label format: "NK 1/5" (source label, page number, zone label)
+        const zoneFullLabel = `${sourceLabel} ${pageIndex}/${zone.label}`
+        
+        // Create preview container showing both pages side by side
+        const previewContainer = document.createElement('span')
+        previewContainer.className = 'previewContainer'
+        
+        // Calculate dimensions for double-page spread preview
+        const frameHeight = 1 // rem (reduced from 1.5)
+        
+        // For each page in the current spread, create a frame
+        currentPageIndices.forEach(currentPageIndex => {
+          const currentPage = this.currentPages[currentPageIndex - 1]
+          if (!currentPage) return
+          
+          const pageFrame = document.createElement('span')
+          pageFrame.className = 'previewFrame'
+          
+          // Calculate aspect ratio for this page
+          const pageAspectRatio = currentPage.mm.width / currentPage.mm.height
+          const frameWidth = frameHeight * pageAspectRatio
+          pageFrame.style.width = `${frameWidth}rem`
+          pageFrame.style.height = `${frameHeight}rem`
+          
+          // Only show the zone on the page where it actually is
+          if (currentPageIndex === pageIndex) {
+            const actualPreview = document.createElement('span')
+            actualPreview.className = 'actualPreview'
+            
+            // Calculate zone position as percentage of page dimensions
+            // Zone coordinates are in pixels, relative to page.px.xywh content area
+            const zoneTop = (zone.y / page.px.xywh.h) * 100
+            const zoneLeft = (zone.x / page.px.xywh.w) * 100
+            const zoneWidth = (zone.w / page.px.xywh.w) * 100
+            const zoneHeight = (zone.h / page.px.xywh.h) * 100
+            
+            actualPreview.style.top = `${zoneTop}%`
+            actualPreview.style.left = `${zoneLeft}%`
+            actualPreview.style.width = `${zoneWidth}%`
+            actualPreview.style.height = `${zoneHeight}%`
+            
+            pageFrame.appendChild(actualPreview)
+          }
+          
+          previewContainer.appendChild(pageFrame)
+        })
+        
+        // Add label text
+        const labelSpan = document.createElement('span')
+        labelSpan.className = 'zone-label-text'
+        labelSpan.textContent = zoneFullLabel
+        
+        li.appendChild(labelSpan)
+        li.appendChild(previewContainer)
+        
+        li.dataset.zone = zone.zoneId
+        li.dataset.zoneLabel = zone.label
+        li.dataset.pageIndex = pageIndex
+
+        // Mark as active if this is the current zone (match both page and label)
+        if (this.currentZoneLabel === zone.label && this.currentZonePageIndex === pageIndex) {
+          li.classList.add('active')
+        }
+
+        // Click handler - navigate to zone
+        li.addEventListener('click', () => {
+          const pageSpec = currentPageIndices.length === 2 ? 
+            `${currentPageIndices[0]}-${currentPageIndices[1]}` : 
+            `${pageIndex}`
+          const zoneSpec = `wz${pageIndex}.${zone.label}`
+          this.navigate(`${this.basePath}/${manifestId}/p${pageSpec}/${zoneSpec}/`)
+        })
+
+        // Hover handlers
+        li.addEventListener('mouseenter', () => {
+          // TODO: Highlight zone in viewer
+          li.classList.add('hover')
+        })
+
+        li.addEventListener('mouseleave', () => {
+          li.classList.remove('hover')
+        })
+
+        zonesList.appendChild(li)
+      })
+    })
+  }
+
+  /**
+   * Update active zone without reloading the viewer
+   * @param {string} zoneLabel - Writing zone label
+   * @param {number} zonePageIndex - Page index for the zone (1-based)
+   */
+  updateActiveZone(zoneLabel, zonePageIndex) {
+    // Update stored zone info
+    this.currentZoneLabel = zoneLabel
+    this.currentZonePageIndex = zonePageIndex
+    
+    // Update active class on zone items
+    const zonesList = document.querySelector('.zones-list')
+    if (!zonesList) return
+    
+    const zoneItems = zonesList.querySelectorAll('.zone-item')
+    zoneItems.forEach(item => {
+      const itemZoneLabel = item.dataset.zoneLabel
+      const itemPageIndex = parseInt(item.dataset.pageIndex, 10)
+      
+      if (itemZoneLabel === zoneLabel && itemPageIndex === zonePageIndex) {
+        item.classList.add('active')
+      } else {
+        item.classList.remove('active')
+      }
     })
   }
 

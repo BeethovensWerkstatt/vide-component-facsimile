@@ -696,14 +696,54 @@ vide-facs-section {
   padding: 0.5rem;
   border-bottom: 1px solid #e0e0e0;
   cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 
   &:last-child {
     border-bottom: none;
   }
 
-  &:hover {
+  &:hover, &.hover {
     background-color: #f5f5f5;
   }
+
+  &.active {
+    background-color: #e3f2fd;
+    font-weight: 600;
+    border-left: 3px solid #1976d2;
+    padding-left: calc(0.5rem - 3px);
+  }
+}
+
+.zone-label-text {
+  flex: 1;
+}
+
+.previewContainer {
+  display: flex;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.previewFrame {
+  position: relative;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  flex-shrink: 0;
+  display: inline-block;
+  
+  &:first-child {
+    border-right: none;
+  }
+}
+
+.actualPreview {
+  position: absolute;
+  background-color: rgba(255, 0, 0, 0.3);
+  border: 1px solid rgba(255, 0, 0, 0.6);
 }
 
 .filter-header {
