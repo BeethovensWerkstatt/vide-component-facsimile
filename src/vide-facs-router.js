@@ -946,10 +946,10 @@ export class VideFacsRouter {
             
             // Calculate zone position as percentage of page dimensions
             // Zone coordinates are in pixels, relative to page.px.xywh content area
-            const zoneTop = (zone.y / page.px.xywh.h) * 100
-            const zoneLeft = (zone.x / page.px.xywh.w) * 100
-            const zoneWidth = (zone.w / page.px.xywh.w) * 100
-            const zoneHeight = (zone.h / page.px.xywh.h) * 100
+            const zoneTop = (zone.pos.y / page.px.xywh.h) * 100
+            const zoneLeft = (zone.pos.x / page.px.xywh.w) * 100
+            const zoneWidth = (zone.pos.w / page.px.xywh.w) * 100
+            const zoneHeight = (zone.pos.h / page.px.xywh.h) * 100
             
             actualPreview.style.top = `${zoneTop}%`
             actualPreview.style.left = `${zoneLeft}%`
@@ -970,7 +970,7 @@ export class VideFacsRouter {
         li.appendChild(labelSpan)
         li.appendChild(previewContainer)
         
-        li.dataset.zone = zone.zoneId
+        li.dataset.zone = zone.identifier.zoneId
         li.dataset.zoneLabel = zone.label
         li.dataset.pageIndex = pageIndex
 
