@@ -140,7 +140,7 @@ export const templates = {
         <div class="panel-section active" data-panel="zones">
           <button id="show-filter-btn" class="filter-btn">Filter</button>
           <ul class="zones-list">
-            <!-- Writing zones will be populated dynamically -->
+            <!-- Writing zones and metadata will be populated dynamically -->
           </ul>
         </div>
         <!-- Panel 2: Filter Panel -->

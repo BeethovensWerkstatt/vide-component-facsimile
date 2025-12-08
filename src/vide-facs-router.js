@@ -138,11 +138,9 @@ export class VideFacsRouter {
       // Check if we're staying on the same page spread - if so, just update the active zone
       if (this.currentManifestId === manifestId && this.currentPageSpec === pageSpec && this.viewer) {
         // Same page spread, just update zone highlight
-        console.log('Zone-only navigation - not reloading viewer')
         this.updateActiveZone(zoneLabel, zonePageIndex)
       } else {
         // Different page or no viewer yet, full reload
-        console.log('Full reload needed - manifest, page, or viewer changed')
         // Clean up viewer when changing manifest or page
         if (this.viewer) {
           this.cleanupViewer()
@@ -999,8 +997,17 @@ export class VideFacsRouter {
         })
 
         zonesList.appendChild(li)
+        
+        // If this is the active zone, add metadata right after it
+        if (this.currentZoneLabel === zone.label && this.currentZonePageIndex === pageIndex) {
+          const metadataLi = this.createZoneMetadata(zone)
+          zonesList.appendChild(metadataLi)
+        }
       })
     })
+    
+    // Setup keyboard navigation
+    this.setupZoneKeyboardNavigation()
   }
 
   /**
@@ -1013,21 +1020,192 @@ export class VideFacsRouter {
     this.currentZoneLabel = zoneLabel
     this.currentZonePageIndex = zonePageIndex
     
-    // Update active class on zone items
-    const zonesList = document.querySelector('.zones-list')
-    if (!zonesList) return
-    
-    const zoneItems = zonesList.querySelectorAll('.zone-item')
-    zoneItems.forEach(item => {
-      const itemZoneLabel = item.dataset.zoneLabel
-      const itemPageIndex = parseInt(item.dataset.pageIndex, 10)
-      
-      if (itemZoneLabel === zoneLabel && itemPageIndex === zonePageIndex) {
-        item.classList.add('active')
-      } else {
-        item.classList.remove('active')
+    // Rebuild zones list to move metadata to new active zone
+    const currentPageIndices = this.currentPageIndices || []
+    if (currentPageIndices.length > 0) {
+      this.setupWritingZones(currentPageIndices)
+    }
+  }
+
+  /**
+   * Create metadata display element for a zone
+   * @param {Object} zone - The zone object
+   * @returns {HTMLElement} List item containing metadata
+   */
+  createZoneMetadata(zone) {
+    const li = document.createElement('li')
+    li.className = 'zone-metadata'
+
+    // Build metadata HTML
+    let html = '<div class="metadata-content">'
+
+    // Musical properties section
+    if (zone.properties) {
+      const props = zone.properties
+
+      // Staves and measures
+      html += '<div class="metadata-row">'
+      if (props.staves) {
+        const stavesLabel = props.staves === 1 ? 'System' : 'Systeme'
+        html += `<span class="metadata-item"><strong>${props.staves}</strong> ${stavesLabel}</span>`
       }
-    })
+      if (props.atMeasures) {
+        const measuresLabel = props.atMeasures === 1 ? 'Takt' : 'Takte'
+        html += `<span class="metadata-item">~<strong>${props.atMeasures}</strong> ${measuresLabel}</span>`
+      }
+      html += '</div>'
+
+      // Key and meter signatures
+      html += '<div class="metadata-row">'
+      if (props.keySig) {
+        const keySupplied = props.keySig.supplied ? ' <span class="supplied-indicator" title="editorisch ergänzt">*</span>' : ''
+        html += `<span class="metadata-item">Vorzeichnung: <strong>${this.formatKeySig(props.keySig.val)}</strong>${keySupplied}</span>`
+      }
+      if (props.meterSig) {
+        const meterSupplied = props.meterSig.supplied ? ' <span class="supplied-indicator" title="editorisch ergänzt">*</span>' : ''
+        html += `<span class="metadata-item">Taktart: <strong>${props.meterSig.val}</strong>${meterSupplied}</span>`
+      }
+      html += '</div>'
+    }
+
+    // Work relations section
+    if (zone.workRelations && zone.workRelations.length > 0) {
+      html += '<div class="metadata-section work-relations">'
+      html += '<div class="metadata-section-title">Mögliche Werkbezüge:</div>'
+      zone.workRelations.forEach(relation => {
+        html += `<div class="work-relation-item" data-relation-id="${relation.relationId || ''}">`
+        if (relation.opus || relation.work) {
+          html += `<div class="work-title">`
+          if (relation.opus) html += `<strong>${relation.opus}</strong> `
+          if (relation.work) html += relation.work
+          html += `</div>`
+        }
+        if (relation.target) {
+          console.log('Processing work relation:', {
+            opus: relation.opus,
+            hasStart: !!relation.target.start,
+            hasEnd: !!relation.target.end,
+            startLabel: relation.target.start?.label,
+            endLabel: relation.target.end?.label,
+            mdivPos: relation.target.mdivPos,
+            startMdivPos: relation.target.start?.mdivPos,
+            targetName: relation.target.name
+          })
+          
+          let targetText = ''
+          
+          // Get movement info from start/end or direct mdivPos
+          let movementText = ''
+          const mdivPos = relation.target.mdivPos || 
+                         (relation.target.start && relation.target.start.mdivPos) ||
+                         (relation.target.end && relation.target.end.mdivPos)
+          if (mdivPos) {
+            movementText = `${mdivPos}. Satz`
+          }
+          
+          // Show movement/section info based on what fields are present
+          if (relation.target.start && relation.target.end) {
+            // Measure range (has start/end)
+            targetText = movementText ? `${movementText}, T. ${relation.target.start.label}–${relation.target.end.label}` : `T. ${relation.target.start.label}–${relation.target.end.label}`
+            console.log('Built measure range targetText:', targetText)
+          } else if (relation.target.name === 'measure' && relation.target.label) {
+            // Single measure reference
+            targetText = movementText ? `${movementText}, T. ${relation.target.label}` : `T. ${relation.target.label}`
+          } else if (relation.target.name === 'mdiv') {
+            // Movement reference only (no measures)
+            if (relation.target.mdivLabel && relation.target.mdivLabel.trim() !== '') {
+              targetText = relation.target.mdivLabel
+            } else if (relation.target.label) {
+              targetText = `${relation.target.label}. Satz`
+            }
+          } else if (movementText) {
+            // Just movement info
+            targetText = movementText
+          }
+          
+          if (targetText) {
+            html += `<div class="work-target">${targetText}</div>`
+          }
+        }
+        html += '</div>'
+      })
+      html += '</div>'
+    }
+
+    // Add button to open detail view
+    if (zone.identifier && zone.identifier.atFilename) {
+      html += '<div class="metadata-actions">'
+      html += `<button class="open-detail-btn" data-at-filename="${zone.identifier.atFilename}">Zeige Transkriptionen</button>`
+      html += '</div>'
+    }
+
+    html += '</div>'
+    li.innerHTML = html
+    
+    // Add click handler for detail button
+    setTimeout(() => {
+      const detailBtn = li.querySelector('.open-detail-btn')
+      if (detailBtn) {
+        detailBtn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          const atFilename = detailBtn.dataset.atFilename
+          alert(`Öffne ${atFilename}`)
+        })
+      }
+    }, 0)
+    
+    return li
+  }
+
+  /**
+   * Setup keyboard navigation for zones list
+   */
+  setupZoneKeyboardNavigation() {
+    // Remove existing listener if any
+    if (this.zoneKeyboardHandler) {
+      document.removeEventListener('keydown', this.zoneKeyboardHandler)
+    }
+    
+    this.zoneKeyboardHandler = (e) => {
+      // Only handle if zones list is visible and not typing in an input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      
+      const zonesList = document.querySelector('.zones-list')
+      if (!zonesList) return
+      
+      const zoneItems = Array.from(zonesList.querySelectorAll('.zone-item'))
+      if (zoneItems.length === 0) return
+      
+      const activeIndex = zoneItems.findIndex(item => item.classList.contains('active'))
+      
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        // Move to next zone
+        const nextIndex = (activeIndex + 1) % zoneItems.length
+        zoneItems[nextIndex].click()
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        // Move to previous zone
+        const prevIndex = activeIndex <= 0 ? zoneItems.length - 1 : activeIndex - 1
+        zoneItems[prevIndex].click()
+      }
+    }
+    
+    document.addEventListener('keydown', this.zoneKeyboardHandler)
+  }
+
+  /**
+   * Format key signature value for display
+   * @param {string} keySig - Key signature (e.g., '3f', '2s', '0')
+   * @returns {string} Formatted key signature
+   */
+  formatKeySig(keySig) {
+    if (keySig === '0') return '0'
+    const match = keySig.match(/^(\d+)([fs])$/)
+    if (!match) return keySig
+    const count = match[1]
+    const type = match[2] === 'f' ? '♭' : '♯'
+    return `${count}${type}`
   }
 
   /**
