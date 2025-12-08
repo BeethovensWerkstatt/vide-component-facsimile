@@ -1072,61 +1072,76 @@ export class VideFacsRouter {
     if (zone.workRelations && zone.workRelations.length > 0) {
       html += '<div class="metadata-section work-relations">'
       html += '<div class="metadata-section-title">Mögliche Werkbezüge:</div>'
+      
+      // Group all relations by work (opus + work title)
+      const groupedRelations = new Map()
+      
       zone.workRelations.forEach(relation => {
-        html += `<div class="work-relation-item" data-relation-id="${relation.relationId || ''}">`
-        if (relation.opus || relation.work) {
+        const workKey = `${relation.opus || ''}|${relation.work || ''}`
+        if (!groupedRelations.has(workKey)) {
+          groupedRelations.set(workKey, {
+            opus: relation.opus,
+            work: relation.work,
+            targets: []
+          })
+        }
+        groupedRelations.get(workKey).targets.push({
+          relationId: relation.relationId,
+          target: relation.target
+        })
+      })
+      
+      // Render each work group
+      groupedRelations.forEach((group, workKey) => {
+        html += `<div class="work-relation-item">`
+        
+        // Work title
+        if (group.opus || group.work) {
           html += `<div class="work-title">`
-          if (relation.opus) html += `<strong>${relation.opus}</strong> `
-          if (relation.work) html += relation.work
+          if (group.opus) html += `<strong>${group.opus}</strong> `
+          if (group.work) html += group.work
           html += `</div>`
         }
-        if (relation.target) {
-          console.log('Processing work relation:', {
-            opus: relation.opus,
-            hasStart: !!relation.target.start,
-            hasEnd: !!relation.target.end,
-            startLabel: relation.target.start?.label,
-            endLabel: relation.target.end?.label,
-            mdivPos: relation.target.mdivPos,
-            startMdivPos: relation.target.start?.mdivPos,
-            targetName: relation.target.name
-          })
-          
-          let targetText = ''
-          
-          // Get movement info from start/end or direct mdivPos
-          let movementText = ''
-          const mdivPos = relation.target.mdivPos || 
-                         (relation.target.start && relation.target.start.mdivPos) ||
-                         (relation.target.end && relation.target.end.mdivPos)
-          if (mdivPos) {
-            movementText = `${mdivPos}. Satz`
-          }
-          
-          // Show movement/section info based on what fields are present
-          if (relation.target.start && relation.target.end) {
-            // Measure range (has start/end)
-            targetText = movementText ? `${movementText}, T. ${relation.target.start.label}–${relation.target.end.label}` : `T. ${relation.target.start.label}–${relation.target.end.label}`
-            console.log('Built measure range targetText:', targetText)
-          } else if (relation.target.name === 'measure' && relation.target.label) {
-            // Single measure reference
-            targetText = movementText ? `${movementText}, T. ${relation.target.label}` : `T. ${relation.target.label}`
-          } else if (relation.target.name === 'mdiv') {
-            // Movement reference only (no measures)
-            if (relation.target.mdivLabel && relation.target.mdivLabel.trim() !== '') {
-              targetText = relation.target.mdivLabel
-            } else if (relation.target.label) {
-              targetText = `${relation.target.label}. Satz`
+        
+        // All targets for this work
+        group.targets.forEach(({relationId, target}) => {
+          if (target) {
+            let targetText = ''
+            
+            // Get movement info from start/end or direct mdivPos
+            let movementText = ''
+            const mdivPos = target.mdivPos || 
+                           (target.start && target.start.mdivPos) ||
+                           (target.end && target.end.mdivPos)
+            if (mdivPos) {
+              movementText = `${mdivPos}. Satz`
             }
-          } else if (movementText) {
-            // Just movement info
-            targetText = movementText
+            
+            // Show movement/section info based on what fields are present
+            if (target.start && target.end) {
+              // Measure range (has start/end)
+              targetText = movementText ? `${movementText}, T. ${target.start.label}–${target.end.label}` : `T. ${target.start.label}–${target.end.label}`
+            } else if (target.name === 'measure' && target.label) {
+              // Single measure reference
+              targetText = movementText ? `${movementText}, T. ${target.label}` : `T. ${target.label}`
+            } else if (target.name === 'mdiv') {
+              // Movement reference only (no measures)
+              if (target.mdivLabel && target.mdivLabel.trim() !== '') {
+                targetText = target.mdivLabel
+              } else if (target.label) {
+                targetText = `${target.label}. Satz`
+              }
+            } else if (movementText) {
+              // Just movement info
+              targetText = movementText
+            }
+            
+            if (targetText) {
+              html += `<div class="work-target" data-relation-id="${relationId || ''}">${targetText}</div>`
+            }
           }
-          
-          if (targetText) {
-            html += `<div class="work-target">${targetText}</div>`
-          }
-        }
+        })
+        
         html += '</div>'
       })
       html += '</div>'
