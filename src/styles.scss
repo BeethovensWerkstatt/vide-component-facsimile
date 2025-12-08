@@ -744,6 +744,27 @@ vide-facs-section {
   position: absolute;
   background-color: rgba(255, 0, 0, 0.3);
   border: 1px solid rgba(255, 0, 0, 0.6);
+  
+  &.grey {
+    background-color: rgba(128, 128, 128, 0.3);
+    border: 1px solid rgba(128, 128, 128, 0.6);
+  }
+}
+
+// Page pair heading in zones list
+.page-pair-heading {
+  padding: 0.5rem 0.75rem;
+  background-color: #e8e8e8;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #555;
+  list-style: none;
+  border-bottom: 1px solid #d0d0d0;
+  margin-top: 0.5rem;
+  
+  &:first-child {
+    margin-top: 0;
+  }
 }
 
 // Zone metadata display (as list item)

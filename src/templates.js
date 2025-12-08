@@ -159,7 +159,7 @@ export const templates = {
       </div>
       <h4>Suchraum</h4>
       <div class="filterbox" class="filterbox">
-        <label><input type="checkbox" name="suchraum" value="current-page"> Auf aktuelle Doppelseite beschränken</label>
+        <label><input type="checkbox" id="restrict-to-current-page" name="suchraum" value="current-page" checked> Auf aktuelle Doppelseite beschränken</label>
       </div>
       <h4>Vorzeichnung</h4>
       <div class="filterbox" class="filterbox filter-vorzeichnung">

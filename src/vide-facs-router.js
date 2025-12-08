@@ -103,7 +103,9 @@ export class VideFacsRouter {
     // /facs/NK/ -> load manifest NK, show first page
     // /facs/NK/p2/ -> load manifest NK, show page 2
     // /facs/NK/p2-3/ -> load manifest NK, show pages 2-3 side by side
+    // /facs/NK/p2/filter:allPages/ -> page 2 with filter
     // /facs/NK/p2/wz2.5/ -> load manifest NK, page 2, highlight zone 5
+    // /facs/NK/p2/filter:allPages/wz2.5/ -> page 2 with filter and zone
     // /facs/NK/p8-9/wz9.1/ -> load manifest NK, pages 8-9, highlight zone 1 on page 9
 
     if (segments.length === 0) {
@@ -117,38 +119,70 @@ export class VideFacsRouter {
         this.cleanupViewer()
       }
       this.loadManifestAndRender(manifestId)
-    } else if (segments.length === 2) {
-      // /facs/NK/p2/ or /facs/NK/p2-3/
+    } else {
+      // Parse remaining segments to extract: manifestId, pageSpec, filters, zoneSpec
       const manifestId = segments[0]
-      const pageSpec = segments[1].startsWith('p') ? segments[1].substring(1) : segments[1]
-      // Clean up viewer when changing manifest or page
-      if (this.viewer && (this.currentManifestId !== manifestId || this.currentPageSpec !== pageSpec)) {
-        this.cleanupViewer()
-      }
-      this.loadManifestAndRender(manifestId, pageSpec)
-    } else if (segments.length === 3) {
-      // /facs/NK/p2/wz2.5/ - page with zone
-      const manifestId = segments[0]
-      const pageSpec = segments[1].startsWith('p') ? segments[1].substring(1) : segments[1]
-      const zoneSpec = segments[2].startsWith('wz') ? segments[2].substring(2) : segments[2]
-      // Parse zone spec: "9.1" -> page 9, zone label "1"
-      const [zonePageStr, zoneLabel] = zoneSpec.split('.')
-      const zonePageIndex = parseInt(zonePageStr, 10)
+      let pageSpec = null
+      let filterSpec = null
+      let zoneSpec = null
       
-      // Check if we're staying on the same page spread - if so, just update the active zone
-      if (this.currentManifestId === manifestId && this.currentPageSpec === pageSpec && this.viewer) {
-        // Same page spread, just update zone highlight
-        this.updateActiveZone(zoneLabel, zonePageIndex)
+      // segments[1] is always pageSpec (p2, p2-3, etc)
+      if (segments[1] && segments[1].startsWith('p')) {
+        pageSpec = segments[1].substring(1)
+      }
+      
+      // Check remaining segments for filter: and wz
+      for (let i = 2; i < segments.length; i++) {
+        if (segments[i].startsWith('filter:')) {
+          filterSpec = segments[i].substring(7) // Remove 'filter:' prefix
+        } else if (segments[i].startsWith('wz')) {
+          zoneSpec = segments[i].substring(2) // Remove 'wz' prefix
+        }
+      }
+      
+      // Apply filters if present
+      if (filterSpec) {
+        this.applyFiltersFromUrl(filterSpec)
       } else {
-        // Different page or no viewer yet, full reload
-        // Clean up viewer when changing manifest or page
-        if (this.viewer) {
+        // Reset to defaults if no filter in URL
+        this.restrictToCurrentPage = true
+      }
+      
+      // Parse zone spec if present
+      let zoneLabel = null
+      let zonePageIndex = null
+      if (zoneSpec) {
+        const [zonePageStr, zoneLabelStr] = zoneSpec.split('.')
+        zonePageIndex = parseInt(zonePageStr, 10)
+        zoneLabel = zoneLabelStr
+      }
+      
+      // Check if we can optimize the update
+      if (this.currentManifestId === manifestId && this.viewer) {
+        // Same manifest, viewer exists
+        if (this.currentPageSpec === pageSpec) {
+          // Same page spread, just update zone highlight and/or filters
+          if (zoneLabel) {
+            this.updateActiveZone(zoneLabel, zonePageIndex)
+          }
+          // Update zones list if filter changed
+          if (this.currentPageIndices && this.currentPageIndices.length > 0) {
+            this.setupWritingZones(this.currentPageIndices)
+          }
+        } else {
+          // Different page, same manifest - swap pages without recreating viewer
+          this.currentPageSpec = pageSpec
+          this.currentZoneLabel = zoneLabel
+          this.currentZonePageIndex = zonePageIndex
+          this.switchPages(pageSpec, zoneLabel, zonePageIndex)
+        }
+      } else {
+        // Different manifest or no viewer yet - full reload
+        if (this.viewer && this.currentManifestId !== manifestId) {
           this.cleanupViewer()
         }
         this.loadManifestAndRender(manifestId, pageSpec, zoneLabel, zonePageIndex)
       }
-    } else {
-      this.renderNotFound(path)
     }
   }
 
@@ -547,6 +581,100 @@ export class VideFacsRouter {
   }
 
   /**
+   * Switch to different pages without recreating the viewer
+   * @param {string} pageSpec - Page specification ('2' or '2-3')
+   * @param {string|null} zoneLabel - Zone label to highlight
+   * @param {number|null} zonePageIndex - Page index for the zone
+   */
+  switchPages(pageSpec, zoneLabel = null, zonePageIndex = null) {
+    if (!this.viewer || !this.currentPages) return
+
+    // Parse new pages
+    const pages = this.parsePageSpec(pageSpec)
+    if (pages.length === 0) return
+
+    const currentPageIndices = pages.map(p => this.currentPages.indexOf(p) + 1)
+    const totalPages = this.currentPages.length
+
+    // Remove all existing tiled images
+    while (this.viewer.world.getItemCount() > 0) {
+      this.viewer.world.removeItem(this.viewer.world.getItemAt(0))
+    }
+
+    // Calculate world bounds for new pages
+    let minX = Infinity
+    let maxX = -Infinity
+    let minY = Infinity
+    let maxY = -Infinity
+    
+    pages.forEach(page => {
+      const config = this.calculatePagePosition(page)
+      const imgMinX = config.x
+      const imgMaxX = config.x + config.width
+      const imgMinY = config.y
+      const imgMaxY = config.y + (config.width * (page.px.height / page.px.width))
+      
+      minX = Math.min(minX, imgMinX)
+      maxX = Math.max(maxX, imgMaxX)
+      minY = Math.min(minY, imgMinY)
+      maxY = Math.max(maxY, imgMaxY)
+    })
+    
+    const padding = 50
+    minX -= padding
+    maxX += padding
+    minY -= padding
+    maxY += padding
+
+    const worldBounds = new OpenSeadragon.Rect(minX, minY, maxX - minX, maxY - minY)
+    this.currentWorldBounds = worldBounds
+    this.currentlyDisplayedPages = pages
+
+    // Add new pages
+    pages.forEach((page, index) => {
+      const pageConfig = this.calculatePagePosition(page)
+      
+      this.viewer.addTiledImage({
+        tileSource: pageConfig.tileSource,
+        x: pageConfig.x,
+        y: pageConfig.y,
+        width: pageConfig.width,
+        degrees: pageConfig.degrees,
+        success: (event) => {
+          // After last page is loaded, fit viewport
+          if (index === pages.length - 1) {
+            this.viewer.viewport.fitBounds(worldBounds, true)
+            
+            const minZoom = this.viewer.viewport.getZoom() * 0.5
+            const maxZoom = this.viewer.viewport.getZoom() * 20
+            
+            this.viewer.viewport.minZoomLevel = minZoom
+            this.viewer.viewport.maxZoomLevel = maxZoom
+            
+            this.viewer.viewport.fitBounds(worldBounds, true)
+          }
+        },
+        error: (event) => {
+          console.error(`Error loading page ${index + 1}:`, event)
+        }
+      })
+    })
+
+    // Update stored indices
+    this.currentPageIndices = currentPageIndices
+
+    // Update UI components
+    this.setupPageNavigation(currentPageIndices, totalPages)
+    this.setupPagePreviews(currentPageIndices)
+    this.setupWritingZones(currentPageIndices)
+
+    // Update active zone if provided
+    if (zoneLabel && zonePageIndex) {
+      this.updateActiveZone(zoneLabel, zonePageIndex)
+    }
+  }
+
+  /**
    * Setup page navigation controls
    */
   setupPageNavigation(currentPages, totalPages) {
@@ -598,11 +726,16 @@ export class VideFacsRouter {
 
     // Setup button states and handlers
     const manifestId = this.getCurrentManifestId()
+    const filterSpec = this.getFilterSpec()
 
     if (prevPageSpec) {
       prevBtn.disabled = false
       prevBtn.onclick = () => {
-        this.navigate(`${this.basePath}/${manifestId}/p${prevPageSpec}/`)
+        let path = `${this.basePath}/${manifestId}/p${prevPageSpec}/`
+        if (filterSpec) {
+          path += `filter:${filterSpec}/`
+        }
+        this.navigate(path)
       }
     } else {
       prevBtn.disabled = true
@@ -611,7 +744,11 @@ export class VideFacsRouter {
     if (nextPageSpec) {
       nextBtn.disabled = false
       nextBtn.onclick = () => {
-        this.navigate(`${this.basePath}/${manifestId}/p${nextPageSpec}/`)
+        let path = `${this.basePath}/${manifestId}/p${nextPageSpec}/`
+        if (filterSpec) {
+          path += `filter:${filterSpec}/`
+        }
+        this.navigate(path)
       }
     } else {
       nextBtn.disabled = true
@@ -888,11 +1025,92 @@ export class VideFacsRouter {
         }
       })
     })
+    
+    // Setup filter event listeners
+    this.setupFilters()
+  }
+
+  /**
+   * Setup filter controls and state
+   */
+  setupFilters() {
+    const restrictCheckbox = document.getElementById('restrict-to-current-page')
+    if (restrictCheckbox) {
+      // Initialize state from URL or default
+      if (this.restrictToCurrentPage !== undefined) {
+        restrictCheckbox.checked = this.restrictToCurrentPage
+      } else {
+        this.restrictToCurrentPage = restrictCheckbox.checked
+      }
+      
+      // Listen for changes
+      restrictCheckbox.addEventListener('change', () => {
+        this.restrictToCurrentPage = restrictCheckbox.checked
+        // Update URL to reflect filter change
+        this.updateUrlWithFilters()
+        // Refresh zones list
+        if (this.currentPageIndices && this.currentPageIndices.length > 0) {
+          this.setupWritingZones(this.currentPageIndices)
+        }
+      })
+    }
+  }
+
+  /**
+   * Apply filter settings from URL filter spec
+   * @param {string} filterSpec - Filter specification (e.g., "allPages")
+   */
+  applyFiltersFromUrl(filterSpec) {
+    const filters = filterSpec.split(',')
+    
+    if (filters.includes('allPages')) {
+      this.restrictToCurrentPage = false
+    } else {
+      this.restrictToCurrentPage = true
+    }
+  }
+
+  /**
+   * Get current filter spec for URL
+   * @returns {string|null} Filter spec or null if using defaults
+   */
+  getFilterSpec() {
+    const filters = []
+    
+    if (!this.restrictToCurrentPage) {
+      filters.push('allPages')
+    }
+    
+    return filters.length > 0 ? filters.join(',') : null
+  }
+
+  /**
+   * Update URL to reflect current filter settings
+   */
+  updateUrlWithFilters() {
+    if (!this.currentManifestId || !this.currentPageSpec) return
+    
+    const manifestId = this.currentManifestId
+    const pageSpec = this.currentPageSpec
+    const filterSpec = this.getFilterSpec()
+    const zoneSpec = this.currentZoneLabel && this.currentZonePageIndex ? 
+      `wz${this.currentZonePageIndex}.${this.currentZoneLabel}` : null
+    
+    // Build URL path
+    let path = `/${manifestId}/p${pageSpec}/`
+    if (filterSpec) {
+      path += `filter:${filterSpec}/`
+    }
+    if (zoneSpec) {
+      path += `${zoneSpec}/`
+    }
+    
+    this.navigate(path)
   }
 
   /**
    * Setup writing zones list from current pages
-   * @param {Array} currentPageIndices - Array of current page numbers
+   * @param {Array} currentPageIndices - Array of current page numbers (currently visible)
    */
   setupWritingZones(currentPageIndices = [1]) {
     const zonesList = document.querySelector('.zones-list')
@@ -904,105 +1122,229 @@ export class VideFacsRouter {
     // Clear existing zones
     zonesList.innerHTML = ''
 
-    // Collect all writing zones from currently displayed pages
-    currentPageIndices.forEach(pageIndex => {
-      const page = this.currentPages[pageIndex - 1]
-      if (!page || !page.writingZones) return
+    // Determine which pages to show zones for
+    let pagesToShow = []
+    if (this.restrictToCurrentPage) {
+      // Show only current page(s)
+      pagesToShow = currentPageIndices
+    } else {
+      // Show all pages (1 to totalPages)
+      const totalPages = this.currentPages.length
+      pagesToShow = Array.from({ length: totalPages }, (_, i) => i + 1)
+    }
 
-      page.writingZones.forEach(zone => {
-        const li = document.createElement('li')
-        li.className = 'zone-item'
-        
-        // Label format: "NK 1/5" (source label, page number, zone label)
-        const zoneFullLabel = `${sourceLabel} ${pageIndex}/${zone.label}`
-        
-        // Create preview container showing both pages side by side
-        const previewContainer = document.createElement('span')
-        previewContainer.className = 'previewContainer'
-        
-        // Calculate dimensions for double-page spread preview
-        const frameHeight = 1 // rem (reduced from 1.5)
-        
-        // For each page in the current spread, create a frame
-        currentPageIndices.forEach(currentPageIndex => {
-          const currentPage = this.currentPages[currentPageIndex - 1]
-          if (!currentPage) return
+    // Group pages into pairs for headings
+    // Page 1 is alone, then pairs: 2/3, 4/5, 6/7, etc.
+    const pagePairs = []
+    if (pagesToShow.length > 0 && pagesToShow.includes(1)) {
+      pagePairs.push([1])
+    }
+    for (let i = pagesToShow[0] === 1 ? 1 : 0; i < pagesToShow.length; i += 2) {
+      const pageNum = pagesToShow[i]
+      if (pageNum === 1) continue // Already handled
+      
+      const pair = [pageNum]
+      if (i + 1 < pagesToShow.length) {
+        pair.push(pagesToShow[i + 1])
+      }
+      pagePairs.push(pair)
+    }
+
+    // Render zones for each page pair
+    pagePairs.forEach(pair => {
+      // Add page pair heading if showing all pages
+      if (!this.restrictToCurrentPage) {
+        const headingLi = document.createElement('li')
+        headingLi.className = 'page-pair-heading'
+        const pairLabel = pair.length === 2 ? 
+          `Seite ${pair[0]} / ${pair[1]}` : 
+          `Seite ${pair[0]}`
+        headingLi.textContent = pairLabel
+        zonesList.appendChild(headingLi)
+      }
+
+      // Render zones for each page in the pair
+      pair.forEach(pageIndex => {
+        const page = this.currentPages[pageIndex - 1]
+        if (!page || !page.writingZones) return
+
+        // Sort zones by label (numeric sort)
+        const sortedZones = [...page.writingZones].sort((a, b) => {
+          const aNum = parseInt(a.label) || 0
+          const bNum = parseInt(b.label) || 0
+          return aNum - bNum
+        })
+
+        sortedZones.forEach(zone => {
+          const li = document.createElement('li')
+          li.className = 'zone-item'
           
-          const pageFrame = document.createElement('span')
-          pageFrame.className = 'previewFrame'
-          
-          // Calculate aspect ratio for this page
-          const pageAspectRatio = currentPage.mm.width / currentPage.mm.height
-          const frameWidth = frameHeight * pageAspectRatio
-          pageFrame.style.width = `${frameWidth}rem`
-          pageFrame.style.height = `${frameHeight}rem`
-          
-          // Only show the zone on the page where it actually is
-          if (currentPageIndex === pageIndex) {
-            const actualPreview = document.createElement('span')
-            actualPreview.className = 'actualPreview'
-            
-            // Calculate zone position as percentage of page dimensions
-            // Zone coordinates are in pixels, relative to page.px.xywh content area
-            const zoneTop = (zone.pos.y / page.px.xywh.h) * 100
-            const zoneLeft = (zone.pos.x / page.px.xywh.w) * 100
-            const zoneWidth = (zone.pos.w / page.px.xywh.w) * 100
-            const zoneHeight = (zone.pos.h / page.px.xywh.h) * 100
-            
-            actualPreview.style.top = `${zoneTop}%`
-            actualPreview.style.left = `${zoneLeft}%`
-            actualPreview.style.width = `${zoneWidth}%`
-            actualPreview.style.height = `${zoneHeight}%`
-            
-            pageFrame.appendChild(actualPreview)
+          // Check if this zone is on a currently visible page
+          const isOnCurrentPage = currentPageIndices.includes(pageIndex)
+          if (!isOnCurrentPage) {
+            li.classList.add('other-page')
           }
           
-          previewContainer.appendChild(pageFrame)
+          // Label format: "NK 1/5" (source label, page number, zone label)
+          const zoneFullLabel = `${sourceLabel} ${pageIndex}/${zone.label}`
+          
+          // Create preview container showing the page spread for this zone
+          const previewContainer = document.createElement('span')
+          previewContainer.className = 'previewContainer'
+          
+          // Calculate dimensions for double-page spread preview
+          const frameHeight = 1 // rem
+          
+          // Determine which pages to show in preview (the pair containing this zone)
+          let previewPageIndices
+          if (this.restrictToCurrentPage) {
+            // Show current spread
+            previewPageIndices = currentPageIndices
+          } else {
+            // Show the spread containing this zone
+            // Page 1 alone, then pairs: 2/3, 4/5, 6/7, etc.
+            if (pageIndex === 1) {
+              previewPageIndices = [1]
+            } else {
+              // For pages 2+, pair as: 2/3, 4/5, 6/7, etc.
+              const pairStart = pageIndex % 2 === 0 ? pageIndex : pageIndex - 1
+              previewPageIndices = [pairStart]
+              if (pairStart + 1 <= this.currentPages.length) {
+                previewPageIndices.push(pairStart + 1)
+              }
+            }
+          }
+          
+          // Create frame for each page in the preview
+          previewPageIndices.forEach(previewPageIndex => {
+            const previewPage = this.currentPages[previewPageIndex - 1]
+            if (!previewPage) return
+            
+            const pageFrame = document.createElement('span')
+            pageFrame.className = 'previewFrame'
+            
+            // Calculate aspect ratio for this page
+            const pageAspectRatio = previewPage.mm.width / previewPage.mm.height
+            const frameWidth = frameHeight * pageAspectRatio
+            pageFrame.style.width = `${frameWidth}rem`
+            pageFrame.style.height = `${frameHeight}rem`
+            
+            // Only show the zone on the page where it actually is
+            if (previewPageIndex === pageIndex) {
+              const actualPreview = document.createElement('span')
+              actualPreview.className = isOnCurrentPage ? 'actualPreview' : 'actualPreview grey'
+              
+              // Calculate zone position as percentage of page dimensions
+              // Zone coordinates are in pixels, relative to page.px.xywh content area
+              // Validate page dimensions to avoid division by tiny or zero values
+              if (page.px.xywh.h < 100 || page.px.xywh.w < 100) {
+                console.warn(`Invalid page dimensions for page ${pageIndex}:`, page.px.xywh)
+                return // Skip this zone preview if data is invalid
+              }
+              
+              const zoneTop = (zone.pos.y / page.px.xywh.h) * 100
+              const zoneLeft = (zone.pos.x / page.px.xywh.w) * 100
+              const zoneWidth = (zone.pos.w / page.px.xywh.w) * 100
+              const zoneHeight = (zone.pos.h / page.px.xywh.h) * 100
+              
+              // Validate percentages are within reasonable bounds
+              if (zoneTop > 100 || zoneLeft > 100 || zoneWidth > 100 || zoneHeight > 100 ||
+                  zoneTop < 0 || zoneLeft < 0 || zoneWidth < 0 || zoneHeight < 0) {
+                console.warn(`Invalid zone percentages for zone ${zone.identifier.zoneId} on page ${pageIndex}:`, {
+                  zoneTop, zoneLeft, zoneWidth, zoneHeight,
+                  zonePos: zone.pos,
+                  pageXywh: page.px.xywh
+                })
+                return // Skip this zone preview if calculations are invalid
+              }
+              
+              actualPreview.style.top = `${zoneTop}%`
+              actualPreview.style.left = `${zoneLeft}%`
+              actualPreview.style.width = `${zoneWidth}%`
+              actualPreview.style.height = `${zoneHeight}%`
+              
+              pageFrame.appendChild(actualPreview)
+            }
+            
+            
+            previewContainer.appendChild(pageFrame)
+          })
+          
+          // Add label text
+          const labelSpan = document.createElement('span')
+          labelSpan.className = 'zone-label-text'
+          labelSpan.textContent = zoneFullLabel
+          
+          li.appendChild(labelSpan)
+          li.appendChild(previewContainer)
+          
+          li.dataset.zone = zone.identifier.zoneId
+          li.dataset.zoneLabel = zone.label
+          li.dataset.pageIndex = pageIndex
+
+          // Mark as active if this is the current zone (match both page and label)
+          if (this.currentZoneLabel === zone.label && this.currentZonePageIndex === pageIndex) {
+            li.classList.add('active')
+          }
+
+          // Click handler - navigate to zone
+          li.addEventListener('click', () => {
+            // Determine the appropriate page spread for this zone
+            let targetPageSpec
+            if (isOnCurrentPage) {
+              // Zone is on current page, keep current spread
+              targetPageSpec = currentPageIndices.length === 2 ? 
+                `${currentPageIndices[0]}-${currentPageIndices[1]}` : 
+                `${pageIndex}`
+            } else {
+              // Zone is on different page, navigate to that page's spread
+              // Page 1 alone, then pairs: 2/3, 4/5, etc.
+              if (pageIndex === 1) {
+                targetPageSpec = '1'
+              } else {
+                const pairStart = pageIndex % 2 === 0 ? pageIndex : pageIndex - 1
+                if (pairStart + 1 <= this.currentPages.length) {
+                  targetPageSpec = `${pairStart}-${pairStart + 1}`
+                } else {
+                  targetPageSpec = `${pairStart}`
+                }
+              }
+            }
+            
+            // Build path with filters
+            const filterSpec = this.getFilterSpec()
+            let path = `${this.basePath}/${manifestId}/p${targetPageSpec}/`
+            if (filterSpec) {
+              path += `filter:${filterSpec}/`
+            }
+            path += `wz${pageIndex}.${zone.label}/`
+            
+            this.navigate(path)
+          })
+
+          // Hover handlers
+          li.addEventListener('mouseenter', () => {
+            // TODO: Highlight zone in viewer
+            li.classList.add('hover')
+          })
+
+          li.addEventListener('mouseleave', () => {
+            li.classList.remove('hover')
+          })
+
+          zonesList.appendChild(li)
+          
+          // If this is the active zone, add metadata right after it
+          if (this.currentZoneLabel === zone.label && this.currentZonePageIndex === pageIndex) {
+            const metadataLi = this.createZoneMetadata(zone)
+            zonesList.appendChild(metadataLi)
+            
+            // Scroll the active zone into view
+            setTimeout(() => {
+              li.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+            }, 100)
+          }
         })
-        
-        // Add label text
-        const labelSpan = document.createElement('span')
-        labelSpan.className = 'zone-label-text'
-        labelSpan.textContent = zoneFullLabel
-        
-        li.appendChild(labelSpan)
-        li.appendChild(previewContainer)
-        
-        li.dataset.zone = zone.identifier.zoneId
-        li.dataset.zoneLabel = zone.label
-        li.dataset.pageIndex = pageIndex
-
-        // Mark as active if this is the current zone (match both page and label)
-        if (this.currentZoneLabel === zone.label && this.currentZonePageIndex === pageIndex) {
-          li.classList.add('active')
-        }
-
-        // Click handler - navigate to zone
-        li.addEventListener('click', () => {
-          const pageSpec = currentPageIndices.length === 2 ? 
-            `${currentPageIndices[0]}-${currentPageIndices[1]}` : 
-            `${pageIndex}`
-          const zoneSpec = `wz${pageIndex}.${zone.label}`
-          this.navigate(`${this.basePath}/${manifestId}/p${pageSpec}/${zoneSpec}/`)
-        })
-
-        // Hover handlers
-        li.addEventListener('mouseenter', () => {
-          // TODO: Highlight zone in viewer
-          li.classList.add('hover')
-        })
-
-        li.addEventListener('mouseleave', () => {
-          li.classList.remove('hover')
-        })
-
-        zonesList.appendChild(li)
-        
-        // If this is the active zone, add metadata right after it
-        if (this.currentZoneLabel === zone.label && this.currentZonePageIndex === pageIndex) {
-          const metadataLi = this.createZoneMetadata(zone)
-          zonesList.appendChild(metadataLi)
-        }
       })
     })
     
