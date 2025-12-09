@@ -132,7 +132,7 @@ export const templates = {
     <div class="side-panel" id="side-panel">
       <div class="side-panel-tabs">
         <button class="side-panel-tab active" data-panel="zones">
-          <span class="tab-label">Schreibzonen</span>
+          <span class="tab-label">Skizzen</span>
         </button>
       </div>
       <div class="side-panel-content" id="side-panel-content">

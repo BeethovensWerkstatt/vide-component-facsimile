@@ -1305,6 +1305,12 @@ export class VideFacsRouter {
               const actualPreview = document.createElement('span')
               actualPreview.className = isOnCurrentPage ? 'actualPreview' : 'actualPreview grey'
               
+              // Check if zone has position data
+              if (!zone.wzProps || !zone.wzProps.pos) {
+                console.warn(`Zone ${zone.identifier?.zoneId} on page ${pageIndex} has no position data`)
+                return // Skip this zone preview if no position data
+              }
+              
               // Calculate zone position as percentage of page dimensions
               // Zone coordinates are in pixels, relative to page.px.xywh content area
               // Validate page dimensions to avoid division by tiny or zero values
@@ -1313,20 +1319,17 @@ export class VideFacsRouter {
                 return // Skip this zone preview if data is invalid
               }
               
-              const pos = zone.wzProps.pos
-              if (!pos) return // Skip if no position data
-              
-              const zoneTop = (pos.y / page.px.xywh.h) * 100
-              const zoneLeft = (pos.x / page.px.xywh.w) * 100
-              const zoneWidth = (pos.w / page.px.xywh.w) * 100
-              const zoneHeight = (pos.h / page.px.xywh.h) * 100
+              const zoneTop = (zone.wzProps.pos.y / page.px.xywh.h) * 100
+              const zoneLeft = (zone.wzProps.pos.x / page.px.xywh.w) * 100
+              const zoneWidth = (zone.wzProps.pos.w / page.px.xywh.w) * 100
+              const zoneHeight = (zone.wzProps.pos.h / page.px.xywh.h) * 100
               
               // Validate percentages are within reasonable bounds
               if (zoneTop > 100 || zoneLeft > 100 || zoneWidth > 100 || zoneHeight > 100 ||
                   zoneTop < 0 || zoneLeft < 0 || zoneWidth < 0 || zoneHeight < 0) {
                 console.warn(`Invalid zone percentages for zone ${zone.identifier.zoneId} on page ${pageIndex}:`, {
                   zoneTop, zoneLeft, zoneWidth, zoneHeight,
-                  zonePos: pos,
+                  zonePos: zone.wzProps.pos,
                   pageXywh: page.px.xywh
                 })
                 return // Skip this zone preview if calculations are invalid
@@ -1584,6 +1587,9 @@ export class VideFacsRouter {
     html += '<div class="metadata-section-content">'
     
     if (zone.workRelations && zone.workRelations.length > 0) {
+      html += '<div class="metadata-section work-relations">'
+      html += '<div class="metadata-section-title">Mögliche Werkbezüge:</div>'
+      
       // Group all relations by work (opus + work title)
       const groupedRelations = new Map()
       
