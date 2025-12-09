@@ -241,6 +241,9 @@ export class VideFacsRouter {
       this.currentPageSpec = pageSpec
       this.currentZoneLabel = zoneLabel
       this.currentZonePageIndex = zonePageIndex
+      
+      // Build lookup map: genDescId → {pageIndex, label}
+      this.buildZoneLookupMap()
 
       // Parse page specification
       const pages = this.parsePageSpec(pageSpec)
@@ -263,6 +266,50 @@ export class VideFacsRouter {
           `${this.basePath}/`
         )
       )
+    }
+  }
+
+  /**
+   * Build lookup map for genDescId to zone location
+   */
+  buildZoneLookupMap() {
+    this.zoneLookup = new Map()
+    
+    if (!this.currentPages) return
+    
+    this.currentPages.forEach((page, pageIdx) => {
+      const pageIndex = pageIdx + 1
+      if (page.writingZones) {
+        page.writingZones.forEach(zone => {
+          if (zone.identifier && zone.identifier.genDescId) {
+            this.zoneLookup.set(zone.identifier.genDescId, {
+              pageIndex,
+              label: zone.label
+            })
+          }
+        })
+      }
+    })
+  }
+
+  /**
+   * Get the page spec (single or double page) for a given page index
+   * Page 1 is alone, then pairs: 2-3, 4-5, 6-7, etc.
+   * @param {number} pageIndex - 1-based page index
+   * @returns {string} Page spec like '1', '2-3', '4-5'
+   */
+  getPageSpec(pageIndex) {
+    if (pageIndex === 1) {
+      return '1'
+    }
+    
+    // For pages 2+, calculate the pair
+    // Page 2 pairs with 3, page 4 with 5, etc.
+    const isEven = pageIndex % 2 === 0
+    if (isEven) {
+      return `${pageIndex}-${pageIndex + 1}`
+    } else {
+      return `${pageIndex - 1}-${pageIndex}`
     }
   }
 
@@ -1052,6 +1099,8 @@ export class VideFacsRouter {
         if (this.currentPageIndices && this.currentPageIndices.length > 0) {
           this.setupWritingZones(this.currentPageIndices)
         }
+        // Update writingZones breadcrumb links
+        this.updateWritingZoneLinks()
       })
     }
   }
@@ -1106,6 +1155,28 @@ export class VideFacsRouter {
     }
     
     this.navigate(path)
+  }
+
+  /**
+   * Update all writingZones breadcrumb links to reflect current filter settings
+   */
+  updateWritingZoneLinks() {
+    const wzLinks = document.querySelectorAll('.wz-link')
+    const filterSpec = this.getFilterSpec()
+    
+    wzLinks.forEach(link => {
+      const pageIndex = parseInt(link.dataset.page, 10)
+      const label = link.dataset.label
+      const pageSpec = this.getPageSpec(pageIndex)
+      
+      let zonePath = `/${this.currentManifestId}/p${pageSpec}/`
+      if (filterSpec) {
+        zonePath += `filter:${filterSpec}/`
+      }
+      zonePath += `wz${pageIndex}.${label}/`
+      
+      link.href = `${this.basePath}${zonePath}`
+    })
   }
 
   /**
@@ -1242,17 +1313,20 @@ export class VideFacsRouter {
                 return // Skip this zone preview if data is invalid
               }
               
-              const zoneTop = (zone.pos.y / page.px.xywh.h) * 100
-              const zoneLeft = (zone.pos.x / page.px.xywh.w) * 100
-              const zoneWidth = (zone.pos.w / page.px.xywh.w) * 100
-              const zoneHeight = (zone.pos.h / page.px.xywh.h) * 100
+              const pos = zone.wzProps.pos
+              if (!pos) return // Skip if no position data
+              
+              const zoneTop = (pos.y / page.px.xywh.h) * 100
+              const zoneLeft = (pos.x / page.px.xywh.w) * 100
+              const zoneWidth = (pos.w / page.px.xywh.w) * 100
+              const zoneHeight = (pos.h / page.px.xywh.h) * 100
               
               // Validate percentages are within reasonable bounds
               if (zoneTop > 100 || zoneLeft > 100 || zoneWidth > 100 || zoneHeight > 100 ||
                   zoneTop < 0 || zoneLeft < 0 || zoneWidth < 0 || zoneHeight < 0) {
                 console.warn(`Invalid zone percentages for zone ${zone.identifier.zoneId} on page ${pageIndex}:`, {
                   zoneTop, zoneLeft, zoneWidth, zoneHeight,
-                  zonePos: zone.pos,
+                  zonePos: pos,
                   pageXywh: page.px.xywh
                 })
                 return // Skip this zone preview if calculations are invalid
@@ -1381,10 +1455,14 @@ export class VideFacsRouter {
     // Build metadata HTML
     let html = '<div class="metadata-content">'
 
-    // Musical properties section
-    if (zone.properties) {
-      const props = zone.properties
-
+    // Sketch properties section
+    html += '<div class="metadata-section sketch-properties">'
+    html += '<div class="metadata-section-title">Skizze:</div>'
+    
+    if (zone.sketchProps) {
+      const props = zone.sketchProps
+      
+      html += '<div class="metadata-section-content">'
       // Staves and measures
       html += '<div class="metadata-row">'
       if (props.staves) {
@@ -1397,24 +1475,115 @@ export class VideFacsRouter {
       }
       html += '</div>'
 
-      // Key and meter signatures
+      // Key, meter, and tempo signatures
       html += '<div class="metadata-row">'
-      if (props.keySig) {
+      if (props.keySig && props.keySig.val) {
         const keySupplied = props.keySig.supplied ? ' <span class="supplied-indicator" title="editorisch ergänzt">*</span>' : ''
         html += `<span class="metadata-item">Vorzeichnung: <strong>${this.formatKeySig(props.keySig.val)}</strong>${keySupplied}</span>`
       }
-      if (props.meterSig) {
+      if (props.meterSig && props.meterSig.val) {
         const meterSupplied = props.meterSig.supplied ? ' <span class="supplied-indicator" title="editorisch ergänzt">*</span>' : ''
         html += `<span class="metadata-item">Taktart: <strong>${props.meterSig.val}</strong>${meterSupplied}</span>`
       }
+      if (props.tempo) {
+        if (props.tempo.val) {
+          const tempoSupplied = props.tempo.supplied ? ' <span class="supplied-indicator" title="editorisch ergänzt">*</span>' : ''
+          html += `<span class="metadata-item">Tempo: <strong>${props.tempo.val}</strong>${tempoSupplied}</span>`
+        } else {
+          html += `<span class="metadata-item">Tempo: <strong>–</strong></span>`
+        }
+      }
       html += '</div>'
-    }
-
-    // Work relations section
-    if (zone.workRelations && zone.workRelations.length > 0) {
-      html += '<div class="metadata-section work-relations">'
-      html += '<div class="metadata-section-title">Mögliche Werkbezüge:</div>'
       
+      // Writing zones sequence (if present)
+      if (props.writingZones) {
+        const wzSequence = Array.isArray(props.writingZones) ? props.writingZones : [props.writingZones]
+        const currentGenDescId = zone.identifier?.genDescId
+        
+        html += '<div class="metadata-row wz-sequence">'
+        html += '<span class="metadata-item">Schreibzone: '
+        
+        wzSequence.forEach((genDescId, idx) => {
+          if (idx > 0) html += ' → '
+          
+          const zoneLoc = this.zoneLookup?.get(genDescId)
+          if (zoneLoc) {
+            const isActive = genDescId === currentGenDescId
+            const sourceLabel = this.currentEdition?.source?.label || ''
+            const zoneFullLabel = `${sourceLabel} ${zoneLoc.pageIndex}/${zoneLoc.label}`
+            
+            if (isActive) {
+              html += `<strong class="active-wz">${zoneFullLabel}</strong>`
+            } else {
+              // Build link with current filter settings and proper page spec
+              const filterSpec = this.getFilterSpec()
+              const pageSpec = this.getPageSpec(zoneLoc.pageIndex)
+              let zonePath = `/${this.currentManifestId}/p${pageSpec}/`
+              if (filterSpec) {
+                zonePath += `filter:${filterSpec}/`
+              }
+              zonePath += `wz${zoneLoc.pageIndex}.${zoneLoc.label}/`
+              html += `<a href="${this.basePath}${zonePath}" class="wz-link" data-page="${zoneLoc.pageIndex}" data-label="${zoneLoc.label}">${zoneFullLabel}</a>`
+            }
+          } else {
+            // genDescId not found in lookup
+            html += `<span class="wz-unknown">${genDescId.substring(0, 8)}...</span>`
+          }
+        })
+        
+        html += '</span>'
+        html += '</div>'
+      }
+      
+      html += '</div>'
+    } else {
+      html += '<div class="no-sketch-props">–</div>'
+    }
+    html += '</div>'
+
+    // Writing zone properties section
+    html += '<div class="metadata-section wz-properties">'
+    html += '<div class="metadata-section-title">Schreibzone:</div>'
+    
+    if (zone.wzProps) {
+      const wzProps = zone.wzProps
+      html += '<div class="metadata-section-content">'
+      html += '<div class="metadata-row">'
+      
+      if (wzProps.staves) {
+        html += `<span class="metadata-item"><span class="metadata-label">Zeile:</span> <strong>${wzProps.staves}</strong></span>`
+      }
+      
+      // Layers count
+      if (wzProps.layers && wzProps.layers.length > 0) {
+        const layerLabel = wzProps.layers.length === 1 ? 'Schreibschicht' : 'Schreibschichten'
+        html += `<span class="metadata-item"><span class="metadata-label">${layerLabel}:</span> <strong>${wzProps.layers.length}</strong></span>`
+      }
+      
+      // Boolean properties - only show if true
+      if (wzProps.metaNavigation) {
+        html += `<span class="metadata-item"><span class="metadata-label">Verweiszeichen:</span> <strong>✓</strong></span>`
+      }
+      if (wzProps.metaClarification) {
+        html += `<span class="metadata-item"><span class="metadata-label">Erläuterungen:</span> <strong>✓</strong></span>`
+      }
+      if (wzProps.otherMeta) {
+        html += `<span class="metadata-item"><span class="metadata-label">Sonstige Metatexte:</span> <strong>✓</strong></span>`
+      }
+      
+      html += '</div>'
+      html += '</div>'
+    } else {
+      html += '<div class="no-wz-props">–</div>'
+    }
+    html += '</div>'
+
+    // Work relations section (always show, even if empty)
+    html += '<div class="metadata-section work-relations">'
+    html += '<div class="metadata-section-title">Mögliche Werkbezüge:</div>'
+    html += '<div class="metadata-section-content">'
+    
+    if (zone.workRelations && zone.workRelations.length > 0) {
       // Group all relations by work (opus + work title)
       const groupedRelations = new Map()
       
@@ -1486,8 +1655,12 @@ export class VideFacsRouter {
         
         html += '</div>'
       })
-      html += '</div>'
+    } else {
+      // No work relations - show placeholder
+      html += '<div class="no-work-relations">–</div>'
     }
+    html += '</div>' // Close metadata-section-content
+    html += '</div>' // Close metadata-section
 
     // Add button to open detail view
     if (zone.identifier && zone.identifier.atFilename) {
