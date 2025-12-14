@@ -1745,6 +1745,155 @@ export class VideFacsRouter {
   }
 
   /**
+   * Populate the notebook modal with actual page data
+   */
+  populateNotebookModal() {
+    const tbody = document.querySelector('#notebook-modal tbody')
+    if (!tbody || !this.currentPages) return
+
+    tbody.innerHTML = ''
+
+    // Track surfaceDoc for color assignment (per page, not per row)
+    let colorIndex = 0
+    const surfaceDocColors = new Map()
+    
+    // Helper to get color class for a surfaceDoc
+    const getColorClass = (surfaceDoc) => {
+      if (!surfaceDoc) return ''
+      if (!surfaceDocColors.has(surfaceDoc)) {
+        surfaceDocColors.set(surfaceDoc, colorIndex % 8) // 8 colors for higher contrast
+        colorIndex++
+      }
+      return `surface-group-${surfaceDocColors.get(surfaceDoc)}`
+    }
+
+    let i = 0
+    while (i < this.currentPages.length) {
+      const tr = document.createElement('tr')
+      const manifestId = this.currentManifestId
+      
+      if (i === 0) {
+        // First page (recto only, right side)
+        const page = this.currentPages[0]
+        const pageNum = 1
+        const colorClass = getColorClass(page.surfaceDoc)
+        
+        // Empty verso cells
+        const emptyPageCell = document.createElement('td')
+        emptyPageCell.className = 'cell-page cell-empty'
+        tr.appendChild(emptyPageCell)
+        
+        const emptySourceCell = document.createElement('td')
+        emptySourceCell.className = 'cell-source cell-verso cell-empty'
+        tr.appendChild(emptySourceCell)
+        
+        // Recto preview cell
+        const rectoPreviewCell = document.createElement('td')
+        rectoPreviewCell.className = `cell-source cell-recto cell-preview ${colorClass}`
+        const rectoPreview = this.createPagePreview(page, pageNum)
+        rectoPreviewCell.appendChild(rectoPreview)
+        tr.appendChild(rectoPreviewCell)
+        
+        // Recto page number cell
+        const rectoPageCell = document.createElement('td')
+        rectoPageCell.className = `cell-page cell-right ${colorClass}`
+        const pageLink = document.createElement('a')
+        pageLink.href = `${this.basePath}/${manifestId}/p1/`
+        pageLink.className = 'page-link page-number'
+        pageLink.textContent = pageNum
+        rectoPageCell.appendChild(pageLink)
+        tr.appendChild(rectoPageCell)
+        
+        i++
+      } else {
+        // Pairs of pages (verso + recto)
+        const versoPage = this.currentPages[i]
+        const rectoPage = this.currentPages[i + 1]
+        const versoPageNum = i + 1
+        const rectoPageNum = i + 2
+        const versoColorClass = versoPage ? getColorClass(versoPage.surfaceDoc) : ''
+        const rectoColorClass = rectoPage ? getColorClass(rectoPage.surfaceDoc) : ''
+        
+        // Verso page number cell
+        const versoPageCell = document.createElement('td')
+        versoPageCell.className = `cell-page cell-right ${versoColorClass}`
+        if (versoPage) {
+          const pageLink = document.createElement('a')
+          pageLink.href = `${this.basePath}/${manifestId}/p${versoPageNum}-${rectoPageNum}/`
+          pageLink.className = 'page-link page-number'
+          pageLink.textContent = versoPageNum
+          versoPageCell.appendChild(pageLink)
+        }
+        tr.appendChild(versoPageCell)
+        
+        // Verso preview cell
+        const versoPreviewCell = document.createElement('td')
+        versoPreviewCell.className = `cell-source cell-verso cell-preview ${versoColorClass}`
+        if (versoPage) {
+          const versoPreview = this.createPagePreview(versoPage, versoPageNum)
+          versoPreviewCell.appendChild(versoPreview)
+        }
+        tr.appendChild(versoPreviewCell)
+        
+        // Recto preview cell
+        const rectoPreviewCell = document.createElement('td')
+        rectoPreviewCell.className = `cell-source cell-recto cell-preview ${rectoColorClass}`
+        if (rectoPage) {
+          const rectoPreview = this.createPagePreview(rectoPage, rectoPageNum)
+          rectoPreviewCell.appendChild(rectoPreview)
+        }
+        tr.appendChild(rectoPreviewCell)
+        
+        // Recto page number cell
+        const rectoPageCell = document.createElement('td')
+        rectoPageCell.className = `cell-page cell-right ${rectoColorClass}`
+        if (rectoPage) {
+          const pageLink = document.createElement('a')
+          pageLink.href = `${this.basePath}/${manifestId}/p${versoPageNum}-${rectoPageNum}/`
+          pageLink.className = 'page-link page-number'
+          pageLink.textContent = rectoPageNum
+          rectoPageCell.appendChild(pageLink)
+        }
+        tr.appendChild(rectoPageCell)
+        
+        i += 2
+      }
+      
+      tbody.appendChild(tr)
+    }
+  }
+
+  /**
+   * Create a page preview element with thumbnail and label
+   * @param {Object} page - Page data
+   * @param {number} pageNum - Page number (1-based)
+   * @returns {HTMLElement} Preview container
+   */
+  createPagePreview(page, pageNum) {
+    const container = document.createElement('div')
+    container.className = 'page-preview-wrapper'
+    container.dataset.surfaceDoc = page.surfaceDoc || ''
+    
+    const thumbnail = this.getIIIFThumbnail(page)
+    const img = document.createElement('img')
+    img.src = thumbnail
+    img.alt = '' // Empty alt for cleaner loading appearance
+    img.crossOrigin = 'anonymous'
+    img.className = 'page-preview-img'
+    
+    const label = document.createElement('div')
+    label.className = 'page-preview-label'
+    const surfaceDoc = page.surfaceDoc || ''
+    const surfaceLabel = page.surfaceLabel || ''
+    label.textContent = surfaceDoc && surfaceLabel ? `${surfaceDoc}: ${surfaceLabel}` : `Seite ${pageNum}`
+    
+    container.appendChild(img)
+    container.appendChild(label)
+    
+    return container
+  }
+
+  /**
    * Setup zoom controls and modal
    */
   setupZoomControls() {
@@ -1815,6 +1964,7 @@ export class VideFacsRouter {
     // Open modal
     if (openModalBtn && modal) {
       openModalBtn.addEventListener('click', () => {
+        this.populateNotebookModal()
         modal.style.display = 'flex'
       })
     }

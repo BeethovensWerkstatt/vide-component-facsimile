@@ -527,16 +527,17 @@ vide-facs-section {
 .notebook-modal {
   display: flex;
   position: fixed;
-  top: 15%;
-  left: 15%;
-  right: 15%;
-  bottom: 15%;
-  background-color: white;
-  border: 2px solid #333;
-  border-radius: 8px;
+  top: 10%;
+  left: 10%;
+  right: 10%;
+  bottom: 10%;
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 0.5px solid #333333;
+  border-radius: 4px;
   z-index: 9999;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   flex-direction: column;
+  backdrop-filter: blur(5px);
 
   &[hidden] {
     display: none;
@@ -548,33 +549,35 @@ vide-facs-section {
     align-items: center;
     padding: 0.75rem 1.5rem;
     border-bottom: 1px solid #ccc;
-    background-color: #f9f9f9;
+    background-color: rgba(249, 249, 249, 0.95);
   }
 
   .modal-title {
     margin: 0;
     font-size: 1.1rem;
     color: #333;
-    font-weight: normal;
+    font-weight: 500;
   }
 
   .modal-close-btn {
-    padding: 0.25rem 0.75rem;
-    background-color: #e8e8e8;
+    padding: 0.4rem 0.8rem;
+    background-color: transparent;
     color: #666;
     border: 1px solid #ccc;
-    border-radius: 3px;
+    border-radius: 4px;
     cursor: pointer;
     font-size: 0.9rem;
+    transition: background-color 0.2s;
 
     &:hover {
-      background-color: #d8d8d8;
+      background-color: rgba(0, 0, 0, 0.05);
     }
   }
 
   .modal-content {
     flex: 1;
     overflow-y: auto;
+    padding: 1rem;
   }
 
   .pages-table {
@@ -590,34 +593,37 @@ vide-facs-section {
       .header-recto {
         padding: 0.75rem;
         text-align: center;
-        font-weight: bold;
+        font-weight: 600;
+        color: #555;
       }
 
       .header-verso {
-        border-right: 1px solid #ccc;
+        border-right: 2px solid #ccc;
       }
     }
 
     .table-header-sub {
-      background-color: #f0f0f0;
+      background-color: #f8f8f8;
       border-bottom: 1px solid #ccc;
 
       .col-page {
         padding: 0.5rem;
-        text-align: left;
-        font-weight: normal;
-        width: 10%;
+        text-align: center;
+        font-weight: 500;
+        width: 8%;
         border-right: 1px solid #e0e0e0;
+        color: #555;
       }
 
       .col-source {
         padding: 0.5rem;
-        text-align: left;
-        font-weight: normal;
-        width: 40%;
+        text-align: center;
+        font-weight: 500;
+        width: 42%;
+        color: #555;
 
         &.col-verso {
-          border-right: 1px solid #ccc;
+          border-right: 2px solid #ccc;
         }
 
         &.col-recto {
@@ -628,43 +634,157 @@ vide-facs-section {
 
     tbody {
       tr {
-        &.row-highlighted {
-          background-color: #fffef0;
+        transition: background-color 0.2s;
+
+        &:hover {
+          background-color: rgba(0, 0, 0, 0.02);
         }
 
         .cell-page,
         .cell-source {
           padding: 0.5rem;
           border-bottom: 1px solid #e0e0e0;
+          vertical-align: middle;
 
           &.cell-right {
-            text-align: right;
+            text-align: center;
+          }
+
+          &.cell-empty {
+            background-color: #f9f9f9;
           }
         }
 
         .cell-page {
           border-right: 1px solid #e0e0e0;
+          font-size: 0.95rem;
         }
 
         .cell-source {
           &.cell-verso {
-            border-right: 1px solid #ccc;
+            border-right: none;
+            padding-right: 0;
+
+            &.cell-preview {
+              padding: 0.5rem 0 0.5rem 0.15rem;
+              text-align: right;
+
+              .page-preview-wrapper {
+                justify-content: flex-end;
+
+                .page-preview-label {
+                  right: 100px;
+                  text-align: right;
+                }
+              }
+            }
+          }
+
+          &.cell-recto {
+            padding-left: 0;
+
+            &.cell-preview {
+              padding: 0.15rem 0.15rem 0.15rem 0;
+              text-align: left;
+
+              .page-preview-wrapper {
+                justify-content: flex-start;
+
+                .page-preview-label {
+                  left: 100px;
+                  text-align: left;
+                }
+              }
+            }
+          }
+
+          &.cell-preview {
+            padding: 0.15rem;
           }
         }
 
-        .source-link {
-          color: #0066cc;
-        }
-
         .page-link {
-          color: #0066cc;
+          color: #1976d2;
+          text-decoration: none;
+          transition: color 0.2s;
+
+          &:hover {
+            color: #1565c0;
+            text-decoration: underline;
+          }
 
           &.page-number {
-            font-weight: bold;
+            font-weight: 600;
           }
         }
       }
     }
+  }
+
+  .page-preview-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+
+    .page-preview-img {
+      max-width: 100%;
+      height: auto;
+      max-height: 60px;
+      border: 1px solid #ddd;
+      border-radius: 2px;
+      object-fit: contain;
+      display: block;
+      background-color: #fdfdf8;
+      min-width: 80px;
+      min-height: 50px;
+    }
+
+    .page-preview-label {
+      position: absolute;
+      top: calc(50% - 0.8rem);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #333;
+      line-height: 1.3;
+      background: transparent;
+      padding: 0.2rem 0.3rem;
+      white-space: nowrap;
+    }
+  }
+
+  // Surface document grouping with 8 colors for higher contrast
+  // Alternating between warmer (cream/yellow) and cooler (blue/green) tones
+  .surface-group-0 {
+    background-color: #fdf6e3; // Warm: Solarized base3 (cream)
+  }
+
+  .surface-group-1 {
+    background-color: #e8f4f8; // Cool: Very light cyan
+  }
+
+  .surface-group-2 {
+    background-color: #fff8dc; // Warm: Cornsilk
+  }
+
+  .surface-group-3 {
+    background-color: #e8f5e9; // Cool: Very light green
+  }
+
+  .surface-group-4 {
+    background-color: #fef5e7; // Warm: Light peach
+  }
+
+  .surface-group-5 {
+    background-color: #e3f2fd; // Cool: Very light blue
+  }
+
+  .surface-group-6 {
+    background-color: #fffbf0; // Warm: Light ivory
+  }
+
+  .surface-group-7 {
+    background-color: #f1f8e9; // Cool: Very light lime
   }
 }
 
