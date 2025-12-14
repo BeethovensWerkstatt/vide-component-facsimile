@@ -143,10 +143,14 @@ export class VideFacsRouter {
       // Apply filters if present
       if (filterSpec) {
         this.applyFiltersFromUrl(filterSpec)
-      } else {
-        // Reset to defaults if no filter in URL
+        this.hasExplicitFilter = true // Track that user has explicitly set a filter
+      } else if (this.restrictToCurrentPage === undefined) {
+        // Only set default if never initialized
         this.restrictToCurrentPage = true
+        this.hasExplicitFilter = false
       }
+      // If filterSpec is not present and state already exists, preserve it (including explicit filter flag)
+
       
       // Parse zone spec if present
       let zoneLabel = null
@@ -1093,6 +1097,7 @@ export class VideFacsRouter {
       // Listen for changes
       restrictCheckbox.addEventListener('change', () => {
         this.restrictToCurrentPage = restrictCheckbox.checked
+        this.hasExplicitFilter = true // User explicitly changed the filter
         // Update URL to reflect filter change
         this.updateUrlWithFilters()
         // Refresh zones list
@@ -1117,6 +1122,12 @@ export class VideFacsRouter {
     } else {
       this.restrictToCurrentPage = true
     }
+    
+    // Update checkbox if it exists
+    const restrictCheckbox = document.getElementById('restrict-to-current-page')
+    if (restrictCheckbox) {
+      restrictCheckbox.checked = this.restrictToCurrentPage
+    }
   }
 
   /**
@@ -1124,10 +1135,24 @@ export class VideFacsRouter {
    * @returns {string|null} Filter spec or null if using defaults
    */
   getFilterSpec() {
+    // If user has explicitly set a filter (via URL or checkbox), always include it
+    if (this.hasExplicitFilter === false) {
+      // Explicitly default state, don't include in URL
+      return null
+    }
+    
     const filters = []
     
     if (!this.restrictToCurrentPage) {
       filters.push('allPages')
+    }
+    
+    // If hasExplicitFilter is true but restrictToCurrentPage is true (default value),
+    // we still include it to maintain explicit state
+    if (this.hasExplicitFilter && this.restrictToCurrentPage) {
+      // Return empty string to indicate explicit default (vs null for implicit default)
+      // Actually, just don't include anything if it's the default
+      return null
     }
     
     return filters.length > 0 ? filters.join(',') : null
