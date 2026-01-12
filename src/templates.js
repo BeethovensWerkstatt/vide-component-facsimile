@@ -30,9 +30,9 @@ export const templates = {
   facsimileViewer: () => `
     <div class="spa-view facsimile-view">
       <div class="page-preview-panel" id="page-preview-panel">
-        <div class="page-preview-container" id="page-preview-container">
+        <ul class="page-preview-container" id="page-preview-container">
           <!-- Thumbnails will be inserted here -->
-        </div>
+        </ul>
       </div>
       <div id="openseadragon-viewer">
         ${templates.viewerControls()}
@@ -252,14 +252,6 @@ export const templates = {
         </ul>
       </div>
       
-      <!--<div style="text-align: center; font-size: 3rem; line-height: 1.3;">
-        ✨🎄✨<br>
-        🎁🎁🎁<br>
-        ⭐✨⭐✨⭐
-      </div>
-      <p style="text-align: center; font-style: italic; color: #666; margin-top: 1rem;">
-        "Früher war mehr Lametta…" 🎀
-      </p>-->
       <!-- Apply Filter Button -->
       <button id="apply-filter-btn" class="apply-filter-btn">Filter anwenden</button>
     </div>

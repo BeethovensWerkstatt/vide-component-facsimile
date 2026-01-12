@@ -1,4 +1,5 @@
 import { templates } from './templates.js'
+import { FilterState } from './filter-state.js'
 
 /**
  * Test1Router
@@ -9,6 +10,7 @@ export class VideFacsRouter {
     this.basePath = '/facs'
     this.app = appElement
     this.contentEl = appElement.querySelector('vide-facs-content')
+    this.filterState = new FilterState()
 
     if (!this.contentEl) {
       console.error('SPA content component not found')
@@ -143,13 +145,10 @@ export class VideFacsRouter {
       // Apply filters if present
       if (filterSpec) {
         this.applyFiltersFromUrl(filterSpec)
-        this.hasExplicitFilter = true // Track that user has explicitly set a filter
-      } else if (this.restrictToCurrentPage === undefined) {
-        // Only set default if never initialized
-        this.restrictToCurrentPage = true
-        this.hasExplicitFilter = false
+      } else {
+        // Use persisted filter state from FilterState
+        this.restrictToCurrentPage = this.filterState.restrictToCurrentPage
       }
-      // If filterSpec is not present and state already exists, preserve it (including explicit filter flag)
 
       
       // Parse zone spec if present
@@ -850,11 +849,29 @@ export class VideFacsRouter {
     // Clear existing thumbnails
     container.innerHTML = ''
 
+    // Read thumb height from CSS variable (fallback to 90px) and helper to derive width from data ratio
+    const thumbHeight = parseFloat(getComputedStyle(container).getPropertyValue('--thumb-height')) || 90
+    const getThumbWidth = (page) => {
+      const px = page?.px
+      const crop = px?.xywh
+      const w = crop?.w || px?.width
+      const h = crop?.h || px?.height
+      if (!w || !h) return 80
+      const ratio = w / h
+      return Math.max(80, Math.round(ratio * thumbHeight))
+    }
+
     // Generate thumbnail groups: first page alone, then pairs
     let i = 0
+    let z = 100
     while (i < pages.length) {
-      const groupDiv = document.createElement('div')
+      const groupDiv = document.createElement('li')
       groupDiv.classList.add('page-thumbnail-group')
+      groupDiv.classList.add('page-thumbnail')
+      groupDiv.setAttribute('role', 'button')
+      groupDiv.setAttribute('tabindex', '0')
+      groupDiv.style.zIndex = String(z)
+      z += 1
 
       if (i === 0) {
         // First page alone
@@ -862,16 +879,41 @@ export class VideFacsRouter {
         const isActive = currentPages.includes(1)
         const thumbnail = this.getIIIFThumbnail(pages[0])
 
+        const frame = document.createElement('div')
+        frame.className = 'page-preview-frame single'
+
+        const side = document.createElement('div')
+        side.className = 'page-preview-side'
+        side.style.height = `${thumbHeight}px`
+        side.style.width = `${getThumbWidth(pages[0])}px`
+
+        const placeholder = document.createElement('div')
+        placeholder.className = 'page-preview-placeholder'
+
         const img = document.createElement('img')
         img.src = thumbnail
         img.alt = `Seite ${pageNum}`
         img.crossOrigin = 'anonymous'
+        img.loading = 'lazy'
+        img.addEventListener('load', () => {
+          side.classList.add('is-loaded')
+          side.classList.remove('is-error')
+        })
+        img.addEventListener('error', () => {
+          side.classList.add('is-error')
+          side.classList.remove('is-loaded')
+          img.style.display = 'none'
+        })
+
+        side.appendChild(placeholder)
+        side.appendChild(img)
+        frame.appendChild(side)
 
         const label = document.createElement('div')
         label.className = 'page-label'
         label.textContent = sourceLabel ? `${sourceLabel} 1` : '1'
 
-        groupDiv.appendChild(img)
+        groupDiv.appendChild(frame)
         groupDiv.appendChild(label)
         groupDiv.dataset.pages = '1'
         groupDiv.dataset.pageCount = 'single'
@@ -893,22 +935,61 @@ export class VideFacsRouter {
         const rightPage = i + 2
         const isActive = currentPages.includes(leftPage) || (pages[i + 1] && currentPages.includes(rightPage))
 
+        const frame = document.createElement('div')
+        frame.className = 'page-preview-frame'
+
         if (pages[i]) {
           const leftThumb = this.getIIIFThumbnail(pages[i])
+          const leftWrap = document.createElement('div')
+          leftWrap.className = 'page-preview-side page-preview-left'
+          leftWrap.style.height = `${thumbHeight}px`
+          leftWrap.style.width = `${getThumbWidth(pages[i])}px`
+          const leftPlaceholder = document.createElement('div')
+          leftPlaceholder.className = 'page-preview-placeholder'
           const leftImg = document.createElement('img')
           leftImg.src = leftThumb
           leftImg.alt = `Seite ${leftPage}`
           leftImg.crossOrigin = 'anonymous'
-          groupDiv.appendChild(leftImg)
+          leftImg.loading = 'lazy'
+          leftImg.addEventListener('load', () => {
+            leftWrap.classList.add('is-loaded')
+            leftWrap.classList.remove('is-error')
+          })
+          leftImg.addEventListener('error', () => {
+            leftWrap.classList.add('is-error')
+            leftWrap.classList.remove('is-loaded')
+            leftImg.style.display = 'none'
+          })
+          leftWrap.appendChild(leftPlaceholder)
+          leftWrap.appendChild(leftImg)
+          frame.appendChild(leftWrap)
         }
 
         if (pages[i + 1]) {
           const rightThumb = this.getIIIFThumbnail(pages[i + 1])
+          const rightWrap = document.createElement('div')
+          rightWrap.className = 'page-preview-side page-preview-right'
+          rightWrap.style.height = `${thumbHeight}px`
+          rightWrap.style.width = `${getThumbWidth(pages[i + 1])}px`
+          const rightPlaceholder = document.createElement('div')
+          rightPlaceholder.className = 'page-preview-placeholder'
           const rightImg = document.createElement('img')
           rightImg.src = rightThumb
           rightImg.alt = `Seite ${rightPage}`
           rightImg.crossOrigin = 'anonymous'
-          groupDiv.appendChild(rightImg)
+          rightImg.loading = 'lazy'
+          rightImg.addEventListener('load', () => {
+            rightWrap.classList.add('is-loaded')
+            rightWrap.classList.remove('is-error')
+          })
+          rightImg.addEventListener('error', () => {
+            rightWrap.classList.add('is-error')
+            rightWrap.classList.remove('is-loaded')
+            rightImg.style.display = 'none'
+          })
+          rightWrap.appendChild(rightPlaceholder)
+          rightWrap.appendChild(rightImg)
+          frame.appendChild(rightWrap)
         }
 
         const label = document.createElement('div')
@@ -925,6 +1006,7 @@ export class VideFacsRouter {
           groupDiv.dataset.pageCount = 'single'
         }
 
+        groupDiv.appendChild(frame)
         groupDiv.appendChild(label)
 
         // Mark as active if showing these pages
@@ -952,43 +1034,13 @@ export class VideFacsRouter {
       })
     }
 
-    // Prevent swipe-to-navigate-back when scrolling horizontally at the left edge
-    if (panel) {
-      let startX = 0
-      let scrollLeft = 0
-
-      panel.addEventListener('touchstart', (e) => {
-        startX = e.touches[0].pageX
-        scrollLeft = panel.scrollLeft
-      }, { passive: true })
-
-      panel.addEventListener('wheel', (e) => {
-        // If scrolling horizontally and not at left edge, prevent default navigation
-        if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && panel.scrollLeft > 0) {
-          e.preventDefault()
-        }
-        // If at left edge but trying to scroll right (into content), also prevent
-        if (panel.scrollLeft === 0 && e.deltaX < 0) {
-          e.preventDefault()
-        }
-      }, { passive: false })
-
-      panel.addEventListener('touchmove', (e) => {
-        const currentX = e.touches[0].pageX
-        const diff = startX - currentX
-
-        // If scrolling right (into content) or not at left edge, prevent navigation
-        if (diff < 0 || scrollLeft > 0) {
-          e.stopPropagation()
-        }
-      }, { passive: true })
-    }
+    // Preserve natural trackpad/touch scrolling in both directions; no interception
 
     // Scroll active thumbnail into view
     setTimeout(() => {
-      const activeThumb = container.querySelector('.page-thumbnail.active')
+      const activeThumb = container.querySelector('.page-thumbnail-group.active')
       if (activeThumb) {
-        activeThumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+        activeThumb.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' })
       }
     }, 100)
   }
@@ -1087,17 +1139,15 @@ export class VideFacsRouter {
   setupFilters() {
     const restrictCheckbox = document.getElementById('restrict-to-current-page')
     if (restrictCheckbox) {
-      // Initialize state from URL or default
-      if (this.restrictToCurrentPage !== undefined) {
-        restrictCheckbox.checked = this.restrictToCurrentPage
-      } else {
-        this.restrictToCurrentPage = restrictCheckbox.checked
-      }
+      // Initialize checkbox from FilterState
+      this.restrictToCurrentPage = this.filterState.restrictToCurrentPage
+      restrictCheckbox.checked = this.restrictToCurrentPage
       
       // Listen for changes
       restrictCheckbox.addEventListener('change', () => {
         this.restrictToCurrentPage = restrictCheckbox.checked
-        this.hasExplicitFilter = true // User explicitly changed the filter
+        // Update FilterState (this persists to sessionStorage)
+        this.filterState.restrictToCurrentPage = this.restrictToCurrentPage
         // Update URL to reflect filter change
         this.updateUrlWithFilters()
         // Refresh zones list
@@ -1115,13 +1165,8 @@ export class VideFacsRouter {
    * @param {string} filterSpec - Filter specification (e.g., "allPages")
    */
   applyFiltersFromUrl(filterSpec) {
-    const filters = filterSpec.split(',')
-    
-    if (filters.includes('allPages')) {
-      this.restrictToCurrentPage = false
-    } else {
-      this.restrictToCurrentPage = true
-    }
+    this.filterState.applyFromUrl(filterSpec)
+    this.restrictToCurrentPage = this.filterState.restrictToCurrentPage
     
     // Update checkbox if it exists
     const restrictCheckbox = document.getElementById('restrict-to-current-page')
@@ -1135,27 +1180,7 @@ export class VideFacsRouter {
    * @returns {string|null} Filter spec or null if using defaults
    */
   getFilterSpec() {
-    // If user has explicitly set a filter (via URL or checkbox), always include it
-    if (this.hasExplicitFilter === false) {
-      // Explicitly default state, don't include in URL
-      return null
-    }
-    
-    const filters = []
-    
-    if (!this.restrictToCurrentPage) {
-      filters.push('allPages')
-    }
-    
-    // If hasExplicitFilter is true but restrictToCurrentPage is true (default value),
-    // we still include it to maintain explicit state
-    if (this.hasExplicitFilter && this.restrictToCurrentPage) {
-      // Return empty string to indicate explicit default (vs null for implicit default)
-      // Actually, just don't include anything if it's the default
-      return null
-    }
-    
-    return filters.length > 0 ? filters.join(',') : null
+    return this.filterState.toUrlSpec()
   }
 
   /**

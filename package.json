@@ -15,10 +15,17 @@
     "build:css": "mkdir -p dist && sass src/styles.scss dist/vide-facs.css --no-source-map",
     "build:vendor": "mkdir -p dist/vendor/openseadragon && cp -r node_modules/openseadragon/build/openseadragon/* dist/vendor/openseadragon/",
     "watch:css": "sass src/styles.scss src/styles.css --no-source-map --watch",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
   },
   "devDependencies": {
-    "sass": "^1.69.5"
+    "happy-dom": "^20.0.11",
+    "jsdom": "^27.0.1",
+    "sass": "^1.69.5",
+    "vitest": "^4.0.16"
   },
   "keywords": [
     "facsimile",

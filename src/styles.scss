@@ -10,6 +10,20 @@ $brand-color: #c62828 !default;
 $grey-color-light: #e8e8e8 !default;
 $mobile-width: 768px !default;
 
+// Override base site's .content-wrapper when it contains the SPA island
+.content-wrapper:has(vide-facs) {
+  max-width: none;
+  width: calc(100% - 2rem);
+  margin: 1rem;
+  padding: 0;
+}
+
+@media screen and (min-width: 1400px) {
+  .wrapper {
+    width: calc(100% - 2rem);
+  }
+}
+
 // Main app container
 vide-facs {
   display: block;
@@ -110,6 +124,10 @@ vide-facs-content {
         right: 0;
         width: 100%;
         z-index: 999;
+        --thumb-height: 90px;
+        --frame-gap: 8px;
+        --page-gap: 0;
+        --frame-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 
         &.collapsed {
           max-height: 0;
@@ -132,84 +150,116 @@ vide-facs-content {
         }
 
         .page-preview-container {
+          list-style-type: none;
+          padding: 8px 12px 12px 12px;
+          margin: 0;
+          z-index: 5;
+          height: 120px;
+          overflow-x: auto;
+          width: 100%;
           display: flex;
-          gap: 0;
-          padding: 15px;
-          min-width: min-content;
+          flex-wrap: nowrap;
+          gap: var(--frame-gap);
+          align-items: flex-start;
+          scrollbar-width: thin;
+          scroll-behavior: auto;
+          overscroll-behavior-x: contain;
 
           .page-thumbnail-group {
-            display: inline-block;
-            background-color: #3a3a3a;
-            border: 3px solid #4a4a4a;
-            cursor: pointer;
-            transition: margin-left 0.2s ease, margin-right 0.2s ease, border-color 0.2s ease;
             position: relative;
-            height: 90px;
-            z-index: 1;
-            overflow-y: visible; // Allow label to overflow vertically
-            overflow-x: hidden;  // Keep images clipped horizontally
-            white-space: nowrap;
-            vertical-align: top;
+            display: inline-flex;
+            flex: 0 0 auto;
+            align-items: flex-start;
+            padding: 4px 4px 10px 4px;
+            text-align: left;
+            cursor: pointer;
+            transition: none;
 
-            // Default overlap for single page following single page
-            margin-left: -50px;
-
-            &:first-child {
-              margin-left: 0;
+            .page-preview-frame {
+              display: inline-flex;
+              align-items: flex-start;
+              gap: var(--page-gap);
+              background-color: rgba(255, 255, 255, 0.06);
+              border: 1px solid rgba(255, 255, 255, 0.15);
+              box-shadow: var(--frame-shadow);
+              position: relative;
+              overflow: hidden;
             }
 
-            // Larger overlap when following a double page
-            &[data-page-count="double"]+& {
-              margin-left: -240px;
+            &.active .page-preview-frame {
+              box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
             }
 
-            // Active page is always fully visible - reset margin and add spacing
-            &.active {
-              border-color: #d4a942;
-              background-color: #4a4a4a;
-              margin-left: 0 !important;
-              margin-right: 0.8rem;
+            .page-preview-left,
+            .page-preview-right {
+              flex: 0 0 auto;
+              display: inline-block;
+              overflow: hidden;
+              position: relative;
+              min-width: 80px;
             }
 
-            &:hover {
-              border-color: #d4a942;
-              margin-left: 0 !important;
-              margin-right: 0.8rem;
+            .page-preview-side {
+              position: relative;
+            }
+
+            .page-preview-placeholder {
+              position: absolute;
+              inset: 0;
+              background: #e5e5e5;
+              display: grid;
+              place-items: center;
+              color: #666;
+              font-size: 0.9rem;
+              font-weight: 600;
+              letter-spacing: 0.02em;
+              z-index: 1;
+            }
+
+            .page-preview-side.is-loaded .page-preview-placeholder {
+              display: none;
+            }
+
+            .page-preview-side.is-error .page-preview-placeholder::after {
+              content: '?';
+              font-size: 1rem;
+            }
+
+            .page-preview-side.is-error img {
+              display: none;
             }
 
             img {
-              height: 90px;
+              height: var(--thumb-height);
               width: auto;
               object-fit: cover;
-              display: inline-block;
-              vertical-align: top;
+              display: block;
               filter: grayscale(80%);
-              opacity: 0.6;
-              transition: all 0.2s ease;
+              transition: none;
+              position: relative;
+              z-index: 2;
             }
 
-            // Active and hovered thumbnails show in color
-            &.active img,
-            &:hover img {
+            &.active img {
               filter: grayscale(0%);
-              opacity: 1;
             }
 
             .page-label {
               position: absolute;
-              left: 4px;
-              top: 90%;
-              transform: translateY(-50%) rotate(-90deg);
-              transform-origin: left center;
-              padding: 2px 6px;
-              font-size: 0.7rem;
+              left: 50%;
+              bottom: 6px;
+              transform: translateX(-50%);
+              padding: 4px 6px;
+              font-size: 0.75rem;
               color: #ffffff;
-              background-color: rgba(0, 0, 0, 0.75);
+              background-color: rgba(0, 0, 0, 0.6);
               white-space: nowrap;
               pointer-events: none;
               font-weight: 600;
               max-width: none;
               width: max-content;
+              z-index: 2;
+              border-radius: 5px;
             }
           }
         }
