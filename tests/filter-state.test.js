@@ -63,14 +63,14 @@ describe('FilterState', () => {
     })
 
     it('should parse work filter', () => {
-      const filters = filterState.parseFilterSpec('byWork:op59')
-      expect(filters.workFilter).toBe('op59')
+      const filters = filterState.parseFilterSpec('werk:Op.120')
+      expect(filters.workRelations).toContain('Op.120')
     })
 
     it('should parse multiple filters', () => {
-      const filters = filterState.parseFilterSpec('allPages,byWork:op59')
+      const filters = filterState.parseFilterSpec('allPages;werk:Op.120')
       expect(filters.restrictToCurrentPage).toBe(false)
-      expect(filters.workFilter).toBe('op59')
+      expect(filters.workRelations).toContain('Op.120')
     })
 
     it('should apply filters from URL and persist them', () => {
@@ -95,16 +95,16 @@ describe('FilterState', () => {
     })
 
     it('should generate spec for work filter', () => {
-      filterState.update({ workFilter: 'op59' })
-      expect(filterState.toUrlSpec()).toBe('byWork:op59')
+      filterState.update({ workRelations: ['Op.120'] })
+      expect(filterState.toUrlSpec()).toBe('werk:Op.120')
     })
 
     it('should generate spec for multiple filters', () => {
       filterState.update({
         restrictToCurrentPage: false,
-        workFilter: 'op59'
+        workRelations: ['Op.120']
       })
-      expect(filterState.toUrlSpec()).toBe('allPages,byWork:op59')
+      expect(filterState.toUrlSpec()).toBe('allPages;werk:Op.120')
     })
   })
 
@@ -112,14 +112,14 @@ describe('FilterState', () => {
     it('should reset to defaults', () => {
       filterState.update({
         restrictToCurrentPage: false,
-        workFilter: 'op59'
+        workRelations: ['Op.120']
       })
       
       filterState.reset()
       
       const filters = filterState.getAll()
       expect(filters.restrictToCurrentPage).toBe(true)
-      expect(filters.workFilter).toBeUndefined()
+      expect(filters.workRelations).toEqual([])
     })
 
     it('should clear storage', () => {
@@ -146,7 +146,7 @@ describe('FilterState', () => {
     })
 
     it('should handle URL → storage → URL round-trip', () => {
-      const inputSpec = 'allPages,byWork:op59'
+      const inputSpec = 'allPages;werk:Op.120'
       
       filterState.applyFromUrl(inputSpec)
       const outputSpec = filterState.toUrlSpec()

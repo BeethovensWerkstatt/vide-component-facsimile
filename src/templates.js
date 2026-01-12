@@ -158,102 +158,88 @@ export const templates = {
         <button id="cancel-filter-btn" title="Abbrechen" class="cancel-filter-btn">×</button>
       </div>
       <h4>Suchraum</h4>
-      <div class="filterbox" class="filterbox">
-        <label><input type="checkbox" id="restrict-to-current-page" name="suchraum" value="current-page" checked> Auf aktuelle Doppelseite beschränken</label>
+      <div class="filterbox">
+        <label><input type="checkbox" id="filter-restrict-page" name="suchraum" value="current-page" checked> Auf aktuelle Doppelseite beschränken</label>
       </div>
       <h4>Vorzeichnung</h4>
-      <div class="filterbox" class="filterbox filter-vorzeichnung">
-        <div class="vorzeichnung-controls">
-          <div id="vorzeichnung-current" class="vorzeichnung-value">0</div>
-          <input type="range" id="vorzeichnung-slider" name="vorzeichnung" min="0" max="14" value="7" step="1" class="vorzeichnung-slider">
+      <div class="filterbox filter-vorzeichnung">
+        <div class="filter-grid">
+          <label><input type="checkbox" name="filter-keysig" value="7f"> 7♭</label>
+          <label><input type="checkbox" name="filter-keysig" value="6f"> 6♭</label>
+          <label><input type="checkbox" name="filter-keysig" value="5f"> 5♭</label>
+          <label><input type="checkbox" name="filter-keysig" value="4f"> 4♭</label>
+          <label><input type="checkbox" name="filter-keysig" value="3f"> 3♭</label>
+          <label><input type="checkbox" name="filter-keysig" value="2f"> 2♭</label>
+          <label><input type="checkbox" name="filter-keysig" value="1f"> 1♭</label>
+          <label><input type="checkbox" name="filter-keysig" value="0"> 0</label>
+          <label><input type="checkbox" name="filter-keysig" value="1s"> 1♯</label>
+          <label><input type="checkbox" name="filter-keysig" value="2s"> 2♯</label>
+          <label><input type="checkbox" name="filter-keysig" value="3s"> 3♯</label>
+          <label><input type="checkbox" name="filter-keysig" value="4s"> 4♯</label>
+          <label><input type="checkbox" name="filter-keysig" value="5s"> 5♯</label>
+          <label><input type="checkbox" name="filter-keysig" value="6s"> 6♯</label>
+          <label><input type="checkbox" name="filter-keysig" value="7s"> 7♯</label>
         </div>
         <div class="filter-checkboxes">
-          <label><input type="checkbox" id="vorzeichnung-ergaenzt" name="vorzeichnung-extra"> original</label>
-          <label><input type="checkbox" id="vorzeichnung-nicht-notiert" name="vorzeichnung-missing"> ergänzt</label>
+          <label><input type="radio" name="filter-keysig-supplied" value="original"> original</label>
+          <label><input type="radio" name="filter-keysig-supplied" value="supplied"> ergänzt</label>
+          <label><input type="radio" name="filter-keysig-supplied" value="any" checked> beides</label>
         </div>
-        <script>
-          (function() {
-            const slider = document.getElementById('vorzeichnung-slider')
-            const label = document.getElementById('vorzeichnung-current')
-            const values = [
-              '7&#9837;', '6&#9837;', '5&#9837;', '4&#9837;', '3&#9837;', '2&#9837;', '1&#9837;', '0',
-              '1&#9839;', '2&#9839;', '3&#9839;', '4&#9839;', '5&#9839;', '6&#9839;', '7&#9839;'
-            ]
-            function updateLabel() {
-              label.innerHTML = values[slider.value]
-            }
-            slider.addEventListener('input', updateLabel)
-            updateLabel()
-          })()
-        </script>
       </div>
       <h4>Taktart</h4>
       <div class="filterbox">
         <div class="filter-grid">
-          <label><input type="checkbox" name="meter" value="4/4"> 4/4</label>
-          <label><input type="checkbox" name="meter" value="3/4"> 3/4</label>
-          <label><input type="checkbox" name="meter" value="2/4"> 2/4</label>
-          <label><input type="checkbox" name="meter" value="2/2"> 2/2</label>
-          <label><input type="checkbox" name="meter" value="2/8"> 2/8</label>
-          <label><input type="checkbox" name="meter" value="3/8"> 3/8</label>
-          <label><input type="checkbox" name="meter" value="6/8"> 6/8</label>
-          <label><input type="checkbox" name="meter" value="9/8"> 9/8</label>
+          <label><input type="checkbox" name="filter-metersig" value="4/4"> 4/4</label>
+          <label><input type="checkbox" name="filter-metersig" value="3/4"> 3/4</label>
+          <label><input type="checkbox" name="filter-metersig" value="2/4"> 2/4</label>
+          <label><input type="checkbox" name="filter-metersig" value="2/2"> 2/2</label>
+          <label><input type="checkbox" name="filter-metersig" value="2/8"> 2/8</label>
+          <label><input type="checkbox" name="filter-metersig" value="3/8"> 3/8</label>
+          <label><input type="checkbox" name="filter-metersig" value="6/8"> 6/8</label>
+          <label><input type="checkbox" name="filter-metersig" value="9/8"> 9/8</label>
         </div>
         <div class="filter-checkboxes">
-          <label><input type="checkbox" id="vorzeichnung-ergaenzt" name="vorzeichnung-extra"> ergänzt</label>
-          <label><input type="checkbox" id="vorzeichnung-nicht-notiert" name="vorzeichnung-missing"> nicht notiert</label>
+          <label><input type="radio" name="filter-metersig-supplied" value="original"> original</label>
+          <label><input type="radio" name="filter-metersig-supplied" value="supplied"> ergänzt</label>
+          <label><input type="radio" name="filter-metersig-supplied" value="any" checked> beides</label>
         </div>
       </div>
-      <h4>Schlüssel (kann weg?)</h4>
+      <h4>Länge (Takte)</h4>
       <div class="filterbox">
-        <ul>
-          <li><input type="checkbox" id="clef-treble" name="clef" value="treble"> <label for="clef-treble">Violinschlüssel</label></li>
-          <li><input type="checkbox" id="clef-bass" name="clef" value="bass"> <label for="clef-bass">Bassschlüssel</label></li>
-          <li><input type="checkbox" id="clef-c" name="clef" value="c"> <label for="clef-c">C-Schlüssel</label></li>
-          <li><input type="checkbox" id="clef-unset" name="clef" value="unset"> <label for="clef-unset">Nicht festgelegt</label></li>
-        </ul>
-      </div>
-      <h4>Länge</h4>
-      <div class="filterbox">
-        <ul>
-          <li><input type="checkbox" id="length-short" name="length" value="short"> <label for="length-short">bis fünf Takte</label></li>
-          <li><input type="checkbox" id="length-medium" name="length" value="medium"> <label for="length-medium">sechs bis zehn Takte</label></li>
-          <li><input type="checkbox" id="length-long" name="length" value="long"> <label for="length-long">mehr als zehn Takte</label></li>
-        </ul>
+        <div class="filter-horizontal">
+          <label><input type="checkbox" name="filter-length" value="short"> ≤5</label>
+          <label><input type="checkbox" name="filter-length" value="medium"> 6–10</label>
+          <label><input type="checkbox" name="filter-length" value="long"> >10</label>
+        </div>
       </div>
       <h4>Anzahl Systeme</h4>
       <div class="filterbox">
         <div class="filter-horizontal">
-          <label><input type="checkbox" name="row-checkbox" value="1"> 1</label>
-          <label><input type="checkbox" name="row-checkbox" value="2"> 2</label>
-          <label><input type="checkbox" name="row-checkbox" value="3"> 3</label>
+          <label><input type="checkbox" name="filter-staves" value="1"> 1</label>
+          <label><input type="checkbox" name="filter-staves" value="2"> 2</label>
+          <label><input type="checkbox" name="filter-staves" value="3"> 3+</label>
         </div>                
       </div>
-      <h4>Verbalanmerkungen</h4>
-      <div class="filterbox" class="filter-horizontal">
-        <label><input type="checkbox" name="verbalanmerkung" value="vorhanden"> vorhanden</label>
-        <label><input type="checkbox" name="verbalanmerkung" value="nicht-vorhanden"> ohne</label>
-      </div>
-      <h4>Verweiszeichen</h4>
-      <div class="filterbox" class="filter-horizontal">
-        <label><input type="checkbox" name="verweiszeichen" value="vorhanden"> vorhanden</label>
-        <label><input type="checkbox" name="verweiszeichen" value="nicht-vorhanden"> ohne</label>
+      <h4>Metatexte</h4>
+      <div class="filterbox">
+        <div class="filter-checkboxes meta-filter">
+          <label><input type="checkbox" name="filter-meta-nav" value="true"> Verweiszeichen</label>
+          <label><input type="checkbox" name="filter-meta-clar" value="true"> Erläuterungen</label>
+          <label><input type="checkbox" name="filter-meta-other" value="true"> Sonstige</label>
+        </div>
       </div>
       <h4>Werkbezug</h4>
-      <div class="filterbox">
-        <ul class="zones-list">
-          <li><label><input type="checkbox" name="werkbezug" value="Op.120"> Op.120</label></li>
-          <li><label><input type="checkbox" name="werkbezug" value="Op.125"> Op.125</label></li>
-          <li class="sub-item"><label><input type="checkbox" name="werkbezug" value="Op.125-1"> 1. Satz</label></li>
-          <li class="sub-item"><label><input type="checkbox" name="werkbezug" value="Op.125-2"> 2. Satz</label></li>
-          <li class="sub-item"><label><input type="checkbox" name="werkbezug" value="Op.125-3"> 3. Satz</label></li>
-          <li class="sub-item"><label><input type="checkbox" name="werkbezug" value="Op.125-4"> 4. Satz</label></li>
-          <li><label><input type="checkbox" name="werkbezug" value="unbekannt"> unbekannt</label></li>
+      <div class="filterbox" id="filter-werkbezug-container">
+        <ul class="zones-list filter-werke">
+          <!-- Work filters will be populated dynamically from edition data -->
         </ul>
       </div>
       
-      <!-- Apply Filter Button -->
-      <button id="apply-filter-btn" class="apply-filter-btn">Filter anwenden</button>
+      <!-- Filter Actions -->
+      <div class="filter-actions">
+        <button id="reset-filter-btn" class="reset-filter-btn">Filter zurücksetzen</button>
+        <button id="apply-filter-btn" class="apply-filter-btn">Filter anwenden</button>
+      </div>
     </div>
   `
 }

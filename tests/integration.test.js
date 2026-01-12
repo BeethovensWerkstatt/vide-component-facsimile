@@ -46,13 +46,13 @@ describe('FilterState Integration', () => {
       const filterState = new FilterState()
       
       // Simulate URL with multiple filters
-      filterState.applyFromUrl('allPages,byWork:op59')
+      filterState.applyFromUrl('allPages;werk:Op.120')
       
       expect(filterState.restrictToCurrentPage).toBe(false)
-      expect(filterState.getAll().workFilter).toBe('op59')
+      expect(filterState.getAll().workRelations).toContain('Op.120')
       
       // Verify URL regeneration
-      expect(filterState.toUrlSpec()).toBe('allPages,byWork:op59')
+      expect(filterState.toUrlSpec()).toBe('allPages;werk:Op.120')
     })
 
     it('should handle URL without filters, persisting previous state', () => {
@@ -77,11 +77,11 @@ describe('FilterState Integration', () => {
       filterState.restrictToCurrentPage = false
       
       // Add additional filter without breaking the first
-      filterState.update({ workFilter: 'op59' })
+      filterState.update({ workRelations: ['Op.120'] })
       
       expect(filterState.restrictToCurrentPage).toBe(false)
-      expect(filterState.getAll().workFilter).toBe('op59')
-      expect(filterState.toUrlSpec()).toBe('allPages,byWork:op59')
+      expect(filterState.getAll().workRelations).toContain('Op.120')
+      expect(filterState.toUrlSpec()).toBe('allPages;werk:Op.120')
     })
   })
 
@@ -101,12 +101,12 @@ describe('FilterState Integration', () => {
       
       // Simulate rapid updates
       filterState.restrictToCurrentPage = false
-      filterState.update({ workFilter: 'op59' })
+      filterState.update({ workRelations: ['Op.120'] })
       filterState.restrictToCurrentPage = true
       
       // Last update should win
       expect(filterState.restrictToCurrentPage).toBe(true)
-      expect(filterState.getAll().workFilter).toBe('op59')
+      expect(filterState.getAll().workRelations).toContain('Op.120')
     })
   })
 

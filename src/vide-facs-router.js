@@ -1137,26 +1137,228 @@ export class VideFacsRouter {
    * Setup filter controls and state
    */
   setupFilters() {
-    const restrictCheckbox = document.getElementById('restrict-to-current-page')
-    if (restrictCheckbox) {
-      // Initialize checkbox from FilterState
-      this.restrictToCurrentPage = this.filterState.restrictToCurrentPage
-      restrictCheckbox.checked = this.restrictToCurrentPage
-      
-      // Listen for changes
-      restrictCheckbox.addEventListener('change', () => {
-        this.restrictToCurrentPage = restrictCheckbox.checked
-        // Update FilterState (this persists to sessionStorage)
-        this.filterState.restrictToCurrentPage = this.restrictToCurrentPage
-        // Update URL to reflect filter change
-        this.updateUrlWithFilters()
-        // Refresh zones list
-        if (this.currentPageIndices && this.currentPageIndices.length > 0) {
-          this.setupWritingZones(this.currentPageIndices)
-        }
-        // Update writingZones breadcrumb links
-        this.updateWritingZoneLinks()
+    // Initialize all filter controls from current FilterState
+    this.syncFilterUIFromState()
+    
+    // Populate work filters dynamically from edition data
+    this.populateWorkFilters()
+    
+    // Apply Filter button
+    const applyFilterBtn = document.getElementById('apply-filter-btn')
+    if (applyFilterBtn) {
+      applyFilterBtn.addEventListener('click', () => {
+        this.applyFiltersFromUI()
+        // Switch back to zones panel
+        const sections = document.querySelectorAll('.panel-section')
+        sections.forEach(s => s.classList.remove('active'))
+        document.querySelector('.panel-section[data-panel="zones"]').classList.add('active')
       })
+    }
+    
+    // Reset Filter button
+    const resetFilterBtn = document.getElementById('reset-filter-btn')
+    if (resetFilterBtn) {
+      resetFilterBtn.addEventListener('click', () => {
+        this.filterState.reset()
+        this.syncFilterUIFromState()
+      })
+    }
+  }
+  
+  /**
+   * Sync filter UI controls from FilterState
+   */
+  syncFilterUIFromState() {
+    const filters = this.filterState.getAll()
+    
+    // Restrict to current page checkbox
+    const restrictCheckbox = document.getElementById('filter-restrict-page')
+    if (restrictCheckbox) {
+      restrictCheckbox.checked = filters.restrictToCurrentPage
+    }
+    this.restrictToCurrentPage = filters.restrictToCurrentPage
+    
+    // Key signature checkboxes
+    document.querySelectorAll('input[name="filter-keysig"]').forEach(cb => {
+      cb.checked = filters.keySig && filters.keySig.includes(cb.value)
+    })
+    
+    // Key signature supplied radio
+    document.querySelectorAll('input[name="filter-keysig-supplied"]').forEach(radio => {
+      if (filters.keySigSupplied === null && radio.value === 'any') radio.checked = true
+      else if (filters.keySigSupplied === true && radio.value === 'supplied') radio.checked = true
+      else if (filters.keySigSupplied === false && radio.value === 'original') radio.checked = true
+    })
+    
+    // Meter signature checkboxes
+    document.querySelectorAll('input[name="filter-metersig"]').forEach(cb => {
+      cb.checked = filters.meterSig && filters.meterSig.includes(cb.value)
+    })
+    
+    // Meter signature supplied radio
+    document.querySelectorAll('input[name="filter-metersig-supplied"]').forEach(radio => {
+      if (filters.meterSigSupplied === null && radio.value === 'any') radio.checked = true
+      else if (filters.meterSigSupplied === true && radio.value === 'supplied') radio.checked = true
+      else if (filters.meterSigSupplied === false && radio.value === 'original') radio.checked = true
+    })
+    
+    // Length checkboxes
+    document.querySelectorAll('input[name="filter-length"]').forEach(cb => {
+      cb.checked = filters.length && filters.length.includes(cb.value)
+    })
+    
+    // Staves checkboxes
+    document.querySelectorAll('input[name="filter-staves"]').forEach(cb => {
+      const val = parseInt(cb.value, 10)
+      cb.checked = filters.staves && filters.staves.includes(val)
+    })
+    
+    // Meta checkboxes
+    const metaNavCb = document.querySelector('input[name="filter-meta-nav"]')
+    if (metaNavCb) metaNavCb.checked = filters.metaNavigation === true
+    
+    const metaClarCb = document.querySelector('input[name="filter-meta-clar"]')
+    if (metaClarCb) metaClarCb.checked = filters.metaClarification === true
+    
+    const metaOtherCb = document.querySelector('input[name="filter-meta-other"]')
+    if (metaOtherCb) metaOtherCb.checked = filters.otherMeta === true
+    
+    // Work relations checkboxes
+    document.querySelectorAll('input[name="filter-werk"]').forEach(cb => {
+      cb.checked = filters.workRelations && filters.workRelations.includes(cb.value)
+    })
+  }
+  
+  /**
+   * Read filter values from UI and apply them
+   */
+  applyFiltersFromUI() {
+    const filters = this.filterState.getDefaults()
+    
+    // Restrict to current page
+    const restrictCheckbox = document.getElementById('filter-restrict-page')
+    filters.restrictToCurrentPage = restrictCheckbox ? restrictCheckbox.checked : true
+    
+    // Key signatures
+    filters.keySig = []
+    document.querySelectorAll('input[name="filter-keysig"]:checked').forEach(cb => {
+      filters.keySig.push(cb.value)
+    })
+    
+    // Key signature supplied
+    const keySigSuppliedRadio = document.querySelector('input[name="filter-keysig-supplied"]:checked')
+    if (keySigSuppliedRadio) {
+      if (keySigSuppliedRadio.value === 'supplied') filters.keySigSupplied = true
+      else if (keySigSuppliedRadio.value === 'original') filters.keySigSupplied = false
+      else filters.keySigSupplied = null
+    }
+    
+    // Meter signatures
+    filters.meterSig = []
+    document.querySelectorAll('input[name="filter-metersig"]:checked').forEach(cb => {
+      filters.meterSig.push(cb.value)
+    })
+    
+    // Meter signature supplied
+    const meterSigSuppliedRadio = document.querySelector('input[name="filter-metersig-supplied"]:checked')
+    if (meterSigSuppliedRadio) {
+      if (meterSigSuppliedRadio.value === 'supplied') filters.meterSigSupplied = true
+      else if (meterSigSuppliedRadio.value === 'original') filters.meterSigSupplied = false
+      else filters.meterSigSupplied = null
+    }
+    
+    // Length
+    filters.length = []
+    document.querySelectorAll('input[name="filter-length"]:checked').forEach(cb => {
+      filters.length.push(cb.value)
+    })
+    
+    // Staves
+    filters.staves = []
+    document.querySelectorAll('input[name="filter-staves"]:checked').forEach(cb => {
+      const val = parseInt(cb.value, 10)
+      if (!isNaN(val)) filters.staves.push(val)
+    })
+    
+    // Meta filters
+    const metaNavCb = document.querySelector('input[name="filter-meta-nav"]')
+    filters.metaNavigation = metaNavCb && metaNavCb.checked ? true : null
+    
+    const metaClarCb = document.querySelector('input[name="filter-meta-clar"]')
+    filters.metaClarification = metaClarCb && metaClarCb.checked ? true : null
+    
+    const metaOtherCb = document.querySelector('input[name="filter-meta-other"]')
+    filters.otherMeta = metaOtherCb && metaOtherCb.checked ? true : null
+    
+    // Work relations
+    filters.workRelations = []
+    document.querySelectorAll('input[name="filter-werk"]:checked').forEach(cb => {
+      filters.workRelations.push(cb.value)
+    })
+    
+    // Update FilterState (persists to sessionStorage)
+    this.filterState.setAll(filters)
+    this.restrictToCurrentPage = filters.restrictToCurrentPage
+    
+    // Update URL to reflect filter changes
+    this.updateUrlWithFilters()
+    
+    // Refresh zones list with new filters
+    if (this.currentPageIndices && this.currentPageIndices.length > 0) {
+      this.setupWritingZones(this.currentPageIndices)
+    }
+    
+    // Update writingZones breadcrumb links
+    this.updateWritingZoneLinks()
+  }
+  
+  /**
+   * Populate work filters dynamically from edition data
+   */
+  populateWorkFilters() {
+    const container = document.querySelector('.filter-werke')
+    if (!container || !this.currentEdition) return
+    
+    // Collect all unique opus values from all zones
+    const opusSet = new Set()
+    let hasZonesWithoutWork = false
+    
+    if (this.currentPages) {
+      this.currentPages.forEach(page => {
+        if (page.writingZones) {
+          page.writingZones.forEach(zone => {
+            if (zone.workRelations && zone.workRelations.length > 0) {
+              zone.workRelations.forEach(wr => {
+                if (wr.opus) opusSet.add(wr.opus)
+              })
+            } else {
+              hasZonesWithoutWork = true
+            }
+          })
+        }
+      })
+    }
+    
+    // Sort opus values
+    const opusList = Array.from(opusSet).sort()
+    
+    // Build filter list
+    container.innerHTML = ''
+    const currentFilters = this.filterState.getAll()
+    
+    opusList.forEach(opus => {
+      const li = document.createElement('li')
+      const isChecked = currentFilters.workRelations && currentFilters.workRelations.includes(opus)
+      li.innerHTML = `<label><input type="checkbox" name="filter-werk" value="${opus}"${isChecked ? ' checked' : ''}> ${opus}</label>`
+      container.appendChild(li)
+    })
+    
+    // Add "unbekannt" option if there are zones without work relations
+    if (hasZonesWithoutWork) {
+      const li = document.createElement('li')
+      const isChecked = currentFilters.workRelations && currentFilters.workRelations.includes('unbekannt')
+      li.innerHTML = `<label><input type="checkbox" name="filter-werk" value="unbekannt"${isChecked ? ' checked' : ''}> unbekannt</label>`
+      container.appendChild(li)
     }
   }
 
@@ -1239,9 +1441,16 @@ export class VideFacsRouter {
 
     const manifestId = this.getCurrentManifestId()
     const sourceLabel = this.currentEdition.source.label
+    
+    // Check if any content filters are active
+    const hasActiveFilters = this.filterState.hasActiveFilters()
 
     // Clear existing zones
     zonesList.innerHTML = ''
+    
+    // Track total zones and filtered zones for feedback
+    let totalZones = 0
+    let visibleZones = 0
 
     // Determine which pages to show zones for
     let pagesToShow = []
@@ -1273,18 +1482,9 @@ export class VideFacsRouter {
 
     // Render zones for each page pair
     pagePairs.forEach(pair => {
-      // Add page pair heading if showing all pages
-      if (!this.restrictToCurrentPage) {
-        const headingLi = document.createElement('li')
-        headingLi.className = 'page-pair-heading'
-        const pairLabel = pair.length === 2 ? 
-          `Seite ${pair[0]} / ${pair[1]}` : 
-          `Seite ${pair[0]}`
-        headingLi.textContent = pairLabel
-        zonesList.appendChild(headingLi)
-      }
-
-      // Render zones for each page in the pair
+      // Collect zones for this pair that pass filters
+      const pairZones = []
+      
       pair.forEach(pageIndex => {
         const page = this.currentPages[pageIndex - 1]
         if (!page || !page.writingZones) return
@@ -1297,182 +1497,210 @@ export class VideFacsRouter {
         })
 
         sortedZones.forEach(zone => {
-          const li = document.createElement('li')
-          li.className = 'zone-item'
+          totalZones++
           
-          // Check if this zone is on a currently visible page
-          const isOnCurrentPage = currentPageIndices.includes(pageIndex)
-          if (!isOnCurrentPage) {
-            li.classList.add('other-page')
+          // Apply content filters
+          if (hasActiveFilters && !this.filterState.matchesFilters(zone)) {
+            return // Skip this zone - doesn't match filters
           }
           
-          // Label format: "NK 1/5" (source label, page number, zone label)
-          const zoneFullLabel = `${sourceLabel} ${pageIndex}/${zone.label}`
+          visibleZones++
+          pairZones.push({ zone, pageIndex })
+        })
+      })
+      
+      // Only add heading if there are zones to show in this pair
+      if (pairZones.length === 0) return
+      
+      // Add page pair heading if showing all pages
+      if (!this.restrictToCurrentPage) {
+        const headingLi = document.createElement('li')
+        headingLi.className = 'page-pair-heading'
+        const pairLabel = pair.length === 2 ? 
+          `Seite ${pair[0]} / ${pair[1]}` : 
+          `Seite ${pair[0]}`
+        headingLi.textContent = pairLabel
+        zonesList.appendChild(headingLi)
+      }
+
+      // Render filtered zones
+      pairZones.forEach(({ zone, pageIndex }) => {
+        const page = this.currentPages[pageIndex - 1]
+        
+        const li = document.createElement('li')
+        li.className = 'zone-item'
+        
+        // Check if this zone is on a currently visible page
+        const isOnCurrentPage = currentPageIndices.includes(pageIndex)
+        if (!isOnCurrentPage) {
+          li.classList.add('other-page')
+        }
           
-          // Create preview container showing the page spread for this zone
-          const previewContainer = document.createElement('span')
-          previewContainer.className = 'previewContainer'
-          
-          // Calculate dimensions for double-page spread preview
-          const frameHeight = 1 // rem
-          
-          // Determine which pages to show in preview (the pair containing this zone)
-          let previewPageIndices
-          if (this.restrictToCurrentPage) {
-            // Show current spread
-            previewPageIndices = currentPageIndices
+        // Label format: "NK 1/5" (source label, page number, zone label)
+        const zoneFullLabel = `${sourceLabel} ${pageIndex}/${zone.label}`
+        
+        // Create preview container showing the page spread for this zone
+        const previewContainer = document.createElement('span')
+        previewContainer.className = 'previewContainer'
+        
+        // Calculate dimensions for double-page spread preview
+        const frameHeight = 1 // rem
+        
+        // Determine which pages to show in preview (the pair containing this zone)
+        let previewPageIndices
+        if (this.restrictToCurrentPage) {
+          // Show current spread
+          previewPageIndices = currentPageIndices
+        } else {
+          // Show the spread containing this zone
+          // Page 1 alone, then pairs: 2/3, 4/5, 6/7, etc.
+          if (pageIndex === 1) {
+            previewPageIndices = [1]
           } else {
-            // Show the spread containing this zone
-            // Page 1 alone, then pairs: 2/3, 4/5, 6/7, etc.
+            // For pages 2+, pair as: 2/3, 4/5, 6/7, etc.
+            const pairStart = pageIndex % 2 === 0 ? pageIndex : pageIndex - 1
+            previewPageIndices = [pairStart]
+            if (pairStart + 1 <= this.currentPages.length) {
+              previewPageIndices.push(pairStart + 1)
+            }
+          }
+        }
+        
+        // Create frame for each page in the preview
+        previewPageIndices.forEach(previewPageIndex => {
+          const previewPage = this.currentPages[previewPageIndex - 1]
+          if (!previewPage) return
+          
+          const pageFrame = document.createElement('span')
+          pageFrame.className = 'previewFrame'
+          
+          // Calculate aspect ratio for this page
+          const pageAspectRatio = previewPage.mm.width / previewPage.mm.height
+          const frameWidth = frameHeight * pageAspectRatio
+          pageFrame.style.width = `${frameWidth}rem`
+          pageFrame.style.height = `${frameHeight}rem`
+          
+          // Only show the zone on the page where it actually is
+          if (previewPageIndex === pageIndex) {
+            const actualPreview = document.createElement('span')
+            actualPreview.className = isOnCurrentPage ? 'actualPreview' : 'actualPreview grey'
+            
+            // Check if zone has position data
+            if (!zone.wzProps || !zone.wzProps.pos) {
+              console.warn(`Zone ${zone.identifier?.zoneId} on page ${pageIndex} has no position data`)
+              return // Skip this zone preview if no position data
+            }
+            
+            // Calculate zone position as percentage of page dimensions
+            // Zone coordinates are in pixels, relative to page.px.xywh content area
+            // Validate page dimensions to avoid division by tiny or zero values
+            if (page.px.xywh.h < 100 || page.px.xywh.w < 100) {
+              console.warn(`Invalid page dimensions for page ${pageIndex}:`, page.px.xywh)
+              return // Skip this zone preview if data is invalid
+            }
+            
+            const zoneTop = (zone.wzProps.pos.y / page.px.xywh.h) * 100
+            const zoneLeft = (zone.wzProps.pos.x / page.px.xywh.w) * 100
+            const zoneWidth = (zone.wzProps.pos.w / page.px.xywh.w) * 100
+            const zoneHeight = (zone.wzProps.pos.h / page.px.xywh.h) * 100
+            
+            // Validate percentages are within reasonable bounds
+            if (zoneTop > 100 || zoneLeft > 100 || zoneWidth > 100 || zoneHeight > 100 ||
+                zoneTop < 0 || zoneLeft < 0 || zoneWidth < 0 || zoneHeight < 0) {
+              console.warn(`Invalid zone percentages for zone ${zone.identifier.zoneId} on page ${pageIndex}:`, {
+                zoneTop, zoneLeft, zoneWidth, zoneHeight,
+                zonePos: zone.wzProps.pos,
+                pageXywh: page.px.xywh
+              })
+              return // Skip this zone preview if calculations are invalid
+            }
+            
+            actualPreview.style.top = `${zoneTop}%`
+            actualPreview.style.left = `${zoneLeft}%`
+            actualPreview.style.width = `${zoneWidth}%`
+            actualPreview.style.height = `${zoneHeight}%`
+            
+            pageFrame.appendChild(actualPreview)
+          }
+          
+          previewContainer.appendChild(pageFrame)
+        })
+        
+        // Add label text
+        const labelSpan = document.createElement('span')
+        labelSpan.className = 'zone-label-text'
+        labelSpan.textContent = zoneFullLabel
+        
+        li.appendChild(labelSpan)
+        li.appendChild(previewContainer)
+        
+        li.dataset.zone = zone.identifier.zoneId
+        li.dataset.zoneLabel = zone.label
+        li.dataset.pageIndex = pageIndex
+
+        // Mark as active if this is the current zone (match both page and label)
+        if (this.currentZoneLabel === zone.label && this.currentZonePageIndex === pageIndex) {
+          li.classList.add('active')
+        }
+
+        // Click handler - navigate to zone
+        li.addEventListener('click', () => {
+          // Determine the appropriate page spread for this zone
+          let targetPageSpec
+          if (isOnCurrentPage) {
+            // Zone is on current page, keep current spread
+            targetPageSpec = currentPageIndices.length === 2 ? 
+              `${currentPageIndices[0]}-${currentPageIndices[1]}` : 
+              `${pageIndex}`
+          } else {
+            // Zone is on different page, navigate to that page's spread
+            // Page 1 alone, then pairs: 2/3, 4/5, etc.
             if (pageIndex === 1) {
-              previewPageIndices = [1]
+              targetPageSpec = '1'
             } else {
-              // For pages 2+, pair as: 2/3, 4/5, 6/7, etc.
               const pairStart = pageIndex % 2 === 0 ? pageIndex : pageIndex - 1
-              previewPageIndices = [pairStart]
               if (pairStart + 1 <= this.currentPages.length) {
-                previewPageIndices.push(pairStart + 1)
-              }
-            }
-          }
-          
-          // Create frame for each page in the preview
-          previewPageIndices.forEach(previewPageIndex => {
-            const previewPage = this.currentPages[previewPageIndex - 1]
-            if (!previewPage) return
-            
-            const pageFrame = document.createElement('span')
-            pageFrame.className = 'previewFrame'
-            
-            // Calculate aspect ratio for this page
-            const pageAspectRatio = previewPage.mm.width / previewPage.mm.height
-            const frameWidth = frameHeight * pageAspectRatio
-            pageFrame.style.width = `${frameWidth}rem`
-            pageFrame.style.height = `${frameHeight}rem`
-            
-            // Only show the zone on the page where it actually is
-            if (previewPageIndex === pageIndex) {
-              const actualPreview = document.createElement('span')
-              actualPreview.className = isOnCurrentPage ? 'actualPreview' : 'actualPreview grey'
-              
-              // Check if zone has position data
-              if (!zone.wzProps || !zone.wzProps.pos) {
-                console.warn(`Zone ${zone.identifier?.zoneId} on page ${pageIndex} has no position data`)
-                return // Skip this zone preview if no position data
-              }
-              
-              // Calculate zone position as percentage of page dimensions
-              // Zone coordinates are in pixels, relative to page.px.xywh content area
-              // Validate page dimensions to avoid division by tiny or zero values
-              if (page.px.xywh.h < 100 || page.px.xywh.w < 100) {
-                console.warn(`Invalid page dimensions for page ${pageIndex}:`, page.px.xywh)
-                return // Skip this zone preview if data is invalid
-              }
-              
-              const zoneTop = (zone.wzProps.pos.y / page.px.xywh.h) * 100
-              const zoneLeft = (zone.wzProps.pos.x / page.px.xywh.w) * 100
-              const zoneWidth = (zone.wzProps.pos.w / page.px.xywh.w) * 100
-              const zoneHeight = (zone.wzProps.pos.h / page.px.xywh.h) * 100
-              
-              // Validate percentages are within reasonable bounds
-              if (zoneTop > 100 || zoneLeft > 100 || zoneWidth > 100 || zoneHeight > 100 ||
-                  zoneTop < 0 || zoneLeft < 0 || zoneWidth < 0 || zoneHeight < 0) {
-                console.warn(`Invalid zone percentages for zone ${zone.identifier.zoneId} on page ${pageIndex}:`, {
-                  zoneTop, zoneLeft, zoneWidth, zoneHeight,
-                  zonePos: zone.wzProps.pos,
-                  pageXywh: page.px.xywh
-                })
-                return // Skip this zone preview if calculations are invalid
-              }
-              
-              actualPreview.style.top = `${zoneTop}%`
-              actualPreview.style.left = `${zoneLeft}%`
-              actualPreview.style.width = `${zoneWidth}%`
-              actualPreview.style.height = `${zoneHeight}%`
-              
-              pageFrame.appendChild(actualPreview)
-            }
-            
-            
-            previewContainer.appendChild(pageFrame)
-          })
-          
-          // Add label text
-          const labelSpan = document.createElement('span')
-          labelSpan.className = 'zone-label-text'
-          labelSpan.textContent = zoneFullLabel
-          
-          li.appendChild(labelSpan)
-          li.appendChild(previewContainer)
-          
-          li.dataset.zone = zone.identifier.zoneId
-          li.dataset.zoneLabel = zone.label
-          li.dataset.pageIndex = pageIndex
-
-          // Mark as active if this is the current zone (match both page and label)
-          if (this.currentZoneLabel === zone.label && this.currentZonePageIndex === pageIndex) {
-            li.classList.add('active')
-          }
-
-          // Click handler - navigate to zone
-          li.addEventListener('click', () => {
-            // Determine the appropriate page spread for this zone
-            let targetPageSpec
-            if (isOnCurrentPage) {
-              // Zone is on current page, keep current spread
-              targetPageSpec = currentPageIndices.length === 2 ? 
-                `${currentPageIndices[0]}-${currentPageIndices[1]}` : 
-                `${pageIndex}`
-            } else {
-              // Zone is on different page, navigate to that page's spread
-              // Page 1 alone, then pairs: 2/3, 4/5, etc.
-              if (pageIndex === 1) {
-                targetPageSpec = '1'
+                targetPageSpec = `${pairStart}-${pairStart + 1}`
               } else {
-                const pairStart = pageIndex % 2 === 0 ? pageIndex : pageIndex - 1
-                if (pairStart + 1 <= this.currentPages.length) {
-                  targetPageSpec = `${pairStart}-${pairStart + 1}`
-                } else {
-                  targetPageSpec = `${pairStart}`
-                }
+                targetPageSpec = `${pairStart}`
               }
             }
-            
-            // Build path with filters
-            const filterSpec = this.getFilterSpec()
-            let path = `${this.basePath}/${manifestId}/p${targetPageSpec}/`
-            if (filterSpec) {
-              path += `filter:${filterSpec}/`
-            }
-            path += `wz${pageIndex}.${zone.label}/`
-            
-            this.navigate(path)
-          })
-
-          // Hover handlers
-          li.addEventListener('mouseenter', () => {
-            // TODO: Highlight zone in viewer
-            li.classList.add('hover')
-          })
-
-          li.addEventListener('mouseleave', () => {
-            li.classList.remove('hover')
-          })
-
-          zonesList.appendChild(li)
+          }
           
-          // If this is the active zone, add metadata right after it
-          if (this.currentZoneLabel === zone.label && this.currentZonePageIndex === pageIndex) {
-            const metadataLi = this.createZoneMetadata(zone)
-            zonesList.appendChild(metadataLi)
-            
-            // Scroll the active zone into view
-            setTimeout(() => {
+          // Build path with filters
+          const filterSpec = this.getFilterSpec()
+          let path = `${this.basePath}/${manifestId}/p${targetPageSpec}/`
+          if (filterSpec) {
+            path += `filter:${filterSpec}/`
+          }
+          path += `wz${pageIndex}.${zone.label}/`
+          
+          this.navigate(path)
+        })
+
+        // Hover handlers
+        li.addEventListener('mouseenter', () => {
+          // TODO: Highlight zone in viewer
+          li.classList.add('hover')
+        })
+
+        li.addEventListener('mouseleave', () => {
+          li.classList.remove('hover')
+        })
+
+        zonesList.appendChild(li)
+        
+        // If this is the active zone, add metadata right after it
+        if (this.currentZoneLabel === zone.label && this.currentZonePageIndex === pageIndex) {
+          const metadataLi = this.createZoneMetadata(zone)
+          zonesList.appendChild(metadataLi)
+          
+          // Scroll the active zone into view
+          setTimeout(() => {
               li.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
             }, 100)
           }
         })
-      })
     })
     
     // Setup keyboard navigation
@@ -1637,9 +1865,6 @@ export class VideFacsRouter {
     html += '<div class="metadata-section-content">'
     
     if (zone.workRelations && zone.workRelations.length > 0) {
-      html += '<div class="metadata-section work-relations">'
-      html += '<div class="metadata-section-title">Mögliche Werkbezüge:</div>'
-      
       // Group all relations by work (opus + work title)
       const groupedRelations = new Map()
       
