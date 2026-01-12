@@ -14,7 +14,7 @@
     "build:js": "mkdir -p dist && cp -r src/* dist/",
     "build:css": "mkdir -p dist && sass src/styles.scss dist/vide-facs.css --no-source-map",
     "build:vendor": "mkdir -p dist/vendor/openseadragon && cp -r node_modules/openseadragon/build/openseadragon/* dist/vendor/openseadragon/",
-    "watch:css": "sass src/styles.scss src/styles.css --no-source-map --watch",
+    "watch:css": "mkdir -p dist && sass src/styles.scss dist/vide-facs.css --no-source-map --watch",
     "prepare": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -75,12 +75,36 @@ vide-component-facsimile/
 │   ├── vide-facs.js          # Main container component
 │   ├── vide-facs-nav.js      # Navigation component
 │   ├── vide-facs-content.js  # Content wrapper component
-│   ├── vide-facs-router.js   # Router with OpenSeadragon viewer
-│   ├── styles.scss           # Component styles
-│   └── styles.css            # Compiled styles (dev)
+│   ├── vide-facs-router.js   # SPA router with page navigation
+│   ├── viewer-manager.js     # OpenSeadragon viewer lifecycle
+│   ├── filter-controller.js  # Filter UI sync and interactions
+│   ├── filter-state.js       # Filter state persistence (sessionStorage)
+│   ├── templates.js          # HTML templates for views
+│   └── styles.scss           # Component styles (SCSS source)
+├── tests/
+│   ├── filter-state.test.js  # Unit tests for FilterState
+│   └── integration.test.js   # Integration tests
 └── dist/
-    ├── vide-facs.js          # Bundled component (production)
+    ├── *.js                  # Copied source files (ES modules)
     └── vide-facs.css         # Compiled styles (production)
+```
+
+### Module Responsibilities
+
+| Module | Purpose |
+|--------|---------|
+| `vide-facs-router.js` | SPA routing, page navigation, zone list rendering |
+| `viewer-manager.js` | OpenSeadragon viewer creation, page positioning, zoom controls |
+| `filter-controller.js` | Filter panel UI, syncing UI ↔ state, applying filters |
+| `filter-state.js` | Filter persistence via sessionStorage, URL parsing/generation |
+| `templates.js` | HTML template functions for views (loading, error, viewer, panels) |
+
+## Testing
+
+```bash
+npm test              # Run all tests
+npm run test:watch    # Watch mode
+npm run test:coverage # With coverage report
 ```
 
 ## License
