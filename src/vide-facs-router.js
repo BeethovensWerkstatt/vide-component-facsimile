@@ -221,7 +221,7 @@ export class VideFacsRouter {
   async loadManifestAndRender(manifestId, pageSpec = null, zoneLabel = null, zonePageIndex = null) {
     // Map manifest IDs to edition data URLs
     const editionUrls = {
-      'NK': '/temp/edition.json'
+      'NK': 'http://localhost:8080/exist/apps/api/document/m57bab171-9222-451d-8f7d-7fe7db6064bb/overview.json'// '/temp/edition.json'
     }
 
     const editionUrl = editionUrls[manifestId]
@@ -242,7 +242,7 @@ export class VideFacsRouter {
       
       // Extract the actual data (skip HTTP headers at indices 0-3, data is in array at index 4)
       // The structure is: [header, header, header, header, [actualData]]
-      const dataArray = editionData.find(item => Array.isArray(item) && item.length > 0)
+      const dataArray = editionData //.find(item => Array.isArray(item) && item.length > 0)
       if (!dataArray) throw new Error('Invalid edition data structure')
       
       const sourceData = dataArray[0]
@@ -391,17 +391,19 @@ export class VideFacsRouter {
    */
   calculateClipRect(page, hideCenter = false, tiledImage, viewer) {
     const { px, position } = page
-    const { xywh, width: pxWidth, height: pxHeight } = px
+    const { xywh, width: pxWidth, height: pxHeight, rotation } = px
     const isVerso = position.includes('verso')
     
     if (!hideCenter) {
-      // No clipping - return null
       return null
     }
     
-    // Clip to hide center margins only
-    // Since recto pages are rendered on top of verso pages, we only need to clip recto
-    // The verso center margin will be naturally hidden by the overlapping recto page
+    // Skip clipping for rotated images - OpenSeadragon's setClip doesn't handle rotation well
+    // A rotation of more than 0.5 degrees can cause issues
+    if (Math.abs(rotation) > 0.5) {
+      console.log(`Skipping clip for rotated page (rotation=${rotation})`)
+      return null
+    }
     
     if (isVerso) {
       // Verso: no clipping needed, center margin hidden by recto overlay
@@ -409,9 +411,6 @@ export class VideFacsRouter {
     }
     
     // Recto: clip the left/center margin, keep page content and right margin
-    // In image pixel space:
-    // - xywh.x is where page content starts (= world x=0)
-    // - Keep everything from xywh.x to the right edge of the image
     const clipX = xywh.x
     const clipY = 0
     const clipW = pxWidth - xywh.x
@@ -2014,19 +2013,9 @@ export class VideFacsRouter {
             const tiledImage = this.viewer.world.getItemAt(index)
             if (tiledImage) {
               if (hideCenter) {
-                // Calculate the clip rect in image pixel coordinates
                 const clipRect = this.calculateClipRect(page, true, tiledImage, this.viewer)
-                /* const isVerso = page.position.includes('verso')
-                console.log(`Page ${index + 1} (${page.position}, isVerso=${isVerso}):`, {
-                  clipRect,
-                  xywh: page.px.xywh,
-                  pxWidth: page.px.width,
-                  pxHeight: page.px.height
-                }) */
                 tiledImage.setClip(clipRect)
               } else {
-                // Remove clipping by passing null
-                // console.log(`Page ${index + 1} (${page.position}) clipping disabled`)
                 tiledImage.setClip(null)
               }
             }
