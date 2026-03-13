@@ -2,6 +2,7 @@ import { templates } from './templates.js'
 import { FilterState } from './filter-state.js'
 import { ViewerManager } from './viewer-manager.js'
 import { FilterController } from './filter-controller.js'
+import { fetchCached } from './data-cache.js'
 
 /**
  * VideFacsRouter
@@ -234,11 +235,8 @@ export class VideFacsRouter {
       // Show loading state
       this.contentEl.setContent(templates.loading('Loading edition data...'))
 
-      // Fetch edition data
-      const response = await fetch(editionUrl)
-      if (!response.ok) throw new Error(`Failed to load edition data: ${response.status}`)
-
-      const editionData = await response.json()
+      // Fetch edition data (served from cache if already loaded by another SPA island)
+      const editionData = await fetchCached(editionUrl)
       
       // Extract the actual data (skip HTTP headers at indices 0-3, data is in array at index 4)
       // The structure is: [header, header, header, header, [actualData]]
