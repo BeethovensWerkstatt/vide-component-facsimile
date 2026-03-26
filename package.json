@@ -15,6 +15,8 @@
     "build:css": "mkdir -p dist && sass src/styles.scss dist/vide-facs.css --no-source-map",
     "build:vendor": "mkdir -p dist/vendor/openseadragon && cp -r node_modules/openseadragon/build/openseadragon/* dist/vendor/openseadragon/",
     "watch:css": "mkdir -p dist && sass src/styles.scss dist/vide-facs.css --no-source-map --watch",
+    "lint": "eslint src/**/*.js tests/**/*.js",
+    "lint:fix": "eslint src/**/*.js tests/**/*.js --fix",
     "prepare": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -22,6 +24,12 @@
     "test:ui": "vitest --ui"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.16",
+    "eslint": "^8.57.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-n": "^16.6.2",
+    "eslint-plugin-promise": "^6.1.1",
     "happy-dom": "^20.0.11",
     "jsdom": "^27.0.1",
     "sass": "^1.69.5",

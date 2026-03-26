@@ -9,7 +9,7 @@ import { fetchCached } from './data-cache.js'
  * Client-side router using the History API for the Digital Facsimile SPA island
  */
 export class VideFacsRouter {
-  constructor(appElement) {
+  constructor (appElement) {
     this.basePath = '/facs'
     this.app = appElement
     this.contentEl = appElement.querySelector('vide-facs-content')
@@ -35,7 +35,7 @@ export class VideFacsRouter {
     this.init()
   }
 
-  init() {
+  init () {
     // Check for ?_path parameter (from 404 redirect)
     const urlParams = new URLSearchParams(window.location.search)
     const pathParam = urlParams.get('_path')
@@ -69,7 +69,7 @@ export class VideFacsRouter {
   /**
    * Get the current path relative to basePath
    */
-  getCurrentPath() {
+  getCurrentPath () {
     const fullPath = window.location.pathname
 
     // Remove basePath from the beginning
@@ -84,7 +84,7 @@ export class VideFacsRouter {
    * Navigate to a new path within the SPA
    * @param {string} path - Path (can be absolute or relative to basePath)
    */
-  navigate(path) {
+  navigate (path) {
     // If path includes basePath, extract the relative portion
     if (path.startsWith(this.basePath)) {
       path = path.slice(this.basePath.length) || '/'
@@ -108,7 +108,7 @@ export class VideFacsRouter {
    * Route to the appropriate view based on path
    * @param {string} path - Current path
    */
-  route(path) {
+  route (path) {
     // Store current route
     this.currentRoute = path
 
@@ -142,12 +142,12 @@ export class VideFacsRouter {
       let pageSpec = null
       let filterSpec = null
       let zoneSpec = null
-      
+
       // segments[1] is always pageSpec (p2, p2-3, etc)
       if (segments[1] && segments[1].startsWith('p')) {
         pageSpec = segments[1].substring(1)
       }
-      
+
       // Check remaining segments for filter: and wz
       for (let i = 2; i < segments.length; i++) {
         if (segments[i].startsWith('filter:')) {
@@ -156,7 +156,7 @@ export class VideFacsRouter {
           zoneSpec = segments[i].substring(2) // Remove 'wz' prefix
         }
       }
-      
+
       // Apply filters if present
       if (filterSpec) {
         this.applyFiltersFromUrl(filterSpec)
@@ -165,7 +165,6 @@ export class VideFacsRouter {
         this.restrictToCurrentPage = this.filterState.restrictToCurrentPage
       }
 
-      
       // Parse zone spec if present
       let zoneLabel = null
       let zonePageIndex = null
@@ -174,7 +173,7 @@ export class VideFacsRouter {
         zonePageIndex = parseInt(zonePageStr, 10)
         zoneLabel = zoneLabelStr
       }
-      
+
       // Check if we can optimize the update
       if (this.currentManifestId === manifestId && this.viewer) {
         // Same manifest, viewer exists
@@ -207,7 +206,7 @@ export class VideFacsRouter {
   /**
    * Clean up OpenSeadragon viewer
    */
-  cleanupViewer() {
+  cleanupViewer () {
     this.viewerManager.cleanup()
     this.viewer = null
   }
@@ -219,10 +218,10 @@ export class VideFacsRouter {
    * @param {string} zoneLabel - Writing zone label (e.g., '5'), optional
    * @param {number} zonePageIndex - Page index for the zone (1-based), optional
    */
-  async loadManifestAndRender(manifestId, pageSpec = null, zoneLabel = null, zonePageIndex = null) {
+  async loadManifestAndRender (manifestId, pageSpec = null, zoneLabel = null, zonePageIndex = null) {
     // Map manifest IDs to edition data URLs
     const editionUrls = {
-      'NK': 'http://localhost:8080/exist/apps/api/document/m57bab171-9222-451d-8f7d-7fe7db6064bb/overview.json'// '/temp/edition.json'
+      NK: 'http://localhost:8080/exist/apps/api/document/m57bab171-9222-451d-8f7d-7fe7db6064bb/overview.json'// '/temp/edition.json'
     }
 
     const editionUrl = editionUrls[manifestId]
@@ -237,12 +236,12 @@ export class VideFacsRouter {
 
       // Fetch edition data (served from cache if already loaded by another SPA island)
       const editionData = await fetchCached(editionUrl)
-      
+
       // Extract the actual data (skip HTTP headers at indices 0-3, data is in array at index 4)
       // The structure is: [header, header, header, header, [actualData]]
-      const dataArray = editionData //.find(item => Array.isArray(item) && item.length > 0)
+      const dataArray = editionData // .find(item => Array.isArray(item) && item.length > 0)
       if (!dataArray) throw new Error('Invalid edition data structure')
-      
+
       const sourceData = dataArray[0]
       this.currentEdition = sourceData
       this.currentPages = sourceData.source.pages
@@ -250,7 +249,7 @@ export class VideFacsRouter {
       this.currentPageSpec = pageSpec
       this.currentZoneLabel = zoneLabel
       this.currentZonePageIndex = zonePageIndex
-      
+
       // Build lookup map: genDescId → {pageIndex, label}
       this.buildZoneLookupMap()
 
@@ -259,13 +258,12 @@ export class VideFacsRouter {
 
       // Render viewer with pages
       this.renderViewer(pages)
-      
+
       // Setup previews immediately after rendering (independent of OSD viewer)
       setTimeout(() => {
         const currentPageIndices = pages.map(p => this.currentPages.indexOf(p) + 1)
         this.setupPagePreviews(currentPageIndices)
       }, 100)
-
     } catch (error) {
       console.error('Error loading edition data:', error)
       this.contentEl.setContent(
@@ -281,11 +279,11 @@ export class VideFacsRouter {
   /**
    * Build lookup map for genDescId to zone location
    */
-  buildZoneLookupMap() {
+  buildZoneLookupMap () {
     this.zoneLookup = new Map()
-    
+
     if (!this.currentPages) return
-    
+
     this.currentPages.forEach((page, pageIdx) => {
       const pageIndex = pageIdx + 1
       if (page.writingZones) {
@@ -307,11 +305,11 @@ export class VideFacsRouter {
    * @param {number} pageIndex - 1-based page index
    * @returns {string} Page spec like '1', '2-3', '4-5'
    */
-  getPageSpec(pageIndex) {
+  getPageSpec (pageIndex) {
     if (pageIndex === 1) {
       return '1'
     }
-    
+
     // For pages 2+, calculate the pair
     // Page 2 pairs with 3, page 4 with 5, etc.
     const isEven = pageIndex % 2 === 0
@@ -327,7 +325,7 @@ export class VideFacsRouter {
    * @param {string|null} pageSpec - Page specification ('2' or '2-3')
    * @returns {Array} Array of page objects from edition data
    */
-  parsePageSpec(pageSpec) {
+  parsePageSpec (pageSpec) {
     if (!this.currentPages) return []
 
     if (!pageSpec) {
@@ -353,20 +351,18 @@ export class VideFacsRouter {
    * Render OpenSeadragon viewer with specified pages
    * @param {Array} pages - Array of IIIF canvas objects
    */
-  renderViewer(pages) {
+  renderViewer (pages) {
     this.contentEl.setContent(templates.facsimileViewer())
 
     // Initialize OpenSeadragon with pages
     setTimeout(() => this.initOpenSeadragon(pages), 0)
   }
 
-
-
   /**
    * Initialize OpenSeadragon viewer
    * @param {Array} pages - Array of IIIF canvas objects to display
    */
-  initOpenSeadragon(pages = []) {
+  initOpenSeadragon (pages = []) {
     this.pagesToLoad = pages
 
     // Load OpenSeadragon if not already loaded
@@ -387,33 +383,33 @@ export class VideFacsRouter {
    * @param {boolean} hideCenter - Whether to hide center margins
    * @returns {Object} OpenSeadragon.Rect for clipping in pixel coordinates
    */
-  calculateClipRect(page, hideCenter = false, tiledImage, viewer) {
+  calculateClipRect (page, hideCenter = false) {
     const { px, position } = page
     const { xywh, width: pxWidth, height: pxHeight, rotation } = px
     const isVerso = position.includes('verso')
-    
+
     if (!hideCenter) {
       return null
     }
-    
+
     // Skip clipping for rotated images - OpenSeadragon's setClip doesn't handle rotation well
     // A rotation of more than 0.5 degrees can cause issues
     if (Math.abs(rotation) > 0.5) {
       console.log(`Skipping clip for rotated page (rotation=${rotation})`)
       return null
     }
-    
+
     if (isVerso) {
       // Verso: no clipping needed, center margin hidden by recto overlay
       return null
     }
-    
+
     // Recto: clip the left/center margin, keep page content and right margin
     const clipX = xywh.x
     const clipY = 0
     const clipW = pxWidth - xywh.x
     const clipH = pxHeight
-    
+
     return new OpenSeadragon.Rect(clipX, clipY, clipW, clipH)
   }
 
@@ -422,36 +418,34 @@ export class VideFacsRouter {
    * @param {Object} page - Page object from edition.json
    * @returns {Object} Object with tileSource, x, y, width, degrees for OSD addTiledImage
    */
-  calculatePagePosition(page) {
+  calculatePagePosition (page) {
     // Extract data from page
     const { target, px, mm, position } = page
-    const { xywh, rotation, width: pxWidth, height: pxHeight } = px
+    const { xywh, rotation, width: pxWidth } = px
     const { width: mmWidth, height: mmHeight } = mm
-    
+
     // Determine if this is a verso (left) or recto (right) page
     const isVerso = position.includes('verso')
-    
+
     // Calculate scale factor from pixels to millimeters
     // The mm dimensions refer to the page content (after rotation, inside xywh)
     // We need to figure out the mm dimensions of the full image
     const pageWidthPx = xywh.w
-    const pageHeightPx = xywh.h
-    
+
     // Scale factor: mm per pixel (using the page dimensions as reference)
     const mmPerPx = mmWidth / pageWidthPx
-    
+
     // Full image dimensions in mm
     const fullImageWidthMm = pxWidth * mmPerPx
-    const fullImageHeightMm = pxHeight * mmPerPx
-    
+
     // Center of xywh rect in pixels (relative to full image)
     const xywhCenterPxX = xywh.x + xywh.w / 2
     const xywhCenterPxY = xywh.y + xywh.h / 2
-    
+
     // Center of xywh rect in mm (relative to full image origin)
     const xywhCenterMmX = xywhCenterPxX * mmPerPx
     const xywhCenterMmY = xywhCenterPxY * mmPerPx
-    
+
     // The page content (mm dimensions) is centered within the xywh rect after rotation
     // Position the page so its inner edge aligns at x=0
     let pageTargetX
@@ -462,26 +456,26 @@ export class VideFacsRouter {
       // Recto page: left edge at x=0
       pageTargetX = 0
     }
-    
+
     // Page top edge at y=0
     const pageTargetY = 0
-    
+
     // The page center in our target coordinate space
     const pageCenterX = pageTargetX + mmWidth / 2
     const pageCenterY = pageTargetY + mmHeight / 2
-    
+
     // Now work backwards: the xywh center is where the page center is
     // (since page is centered in xywh rect after rotation)
     // The full image's origin needs to be positioned such that its xywh center
     // ends up at pageCenterX, pageCenterY
-    
+
     const imageX = pageCenterX - xywhCenterMmX
     const imageY = pageCenterY - xywhCenterMmY
-    
+
     // Build IIIF image URL
     const baseUrl = target.replace(/\.(jpg|tif|tiff)$/i, '')
     const tileSource = baseUrl + '/info.json'
-    
+
     return {
       tileSource,
       x: imageX,
@@ -494,7 +488,7 @@ export class VideFacsRouter {
   /**
    * Create OpenSeadragon viewer instance
    */
-  createViewer() {
+  createViewer () {
     const viewerEl = document.getElementById('openseadragon-viewer')
     if (!viewerEl) return
 
@@ -522,7 +516,7 @@ export class VideFacsRouter {
     let maxX = -Infinity
     let minY = Infinity
     let maxY = -Infinity
-    
+
     pages.forEach(page => {
       const config = this.calculatePagePosition(page)
       // Image bounds in our coordinate space
@@ -530,13 +524,13 @@ export class VideFacsRouter {
       const imgMaxX = config.x + config.width
       const imgMinY = config.y
       const imgMaxY = config.y + (config.width * (page.px.height / page.px.width)) // maintain aspect ratio
-      
+
       minX = Math.min(minX, imgMinX)
       maxX = Math.max(maxX, imgMaxX)
       minY = Math.min(minY, imgMinY)
       maxY = Math.max(maxY, imgMaxY)
     })
-    
+
     // Add some padding
     const padding = 50 // 50mm padding
     minX -= padding
@@ -546,7 +540,7 @@ export class VideFacsRouter {
 
     // Store bounds for later use
     const worldBounds = new OpenSeadragon.Rect(minX, minY, maxX - minX, maxY - minY)
-    
+
     // Initialize viewer with empty world (we'll add images programmatically)
     this.viewer = OpenSeadragon({
       id: 'openseadragon-viewer',
@@ -582,36 +576,36 @@ export class VideFacsRouter {
     // Add each page with calculated positioning
     pages.forEach((page, index) => {
       const pageConfig = this.calculatePagePosition(page)
-      
+
       this.viewer.addTiledImage({
         tileSource: pageConfig.tileSource,
         x: pageConfig.x,
         y: pageConfig.y,
         width: pageConfig.width,
         degrees: pageConfig.degrees,
-        success: (event) => {
+        success: (_event) => {
           console.log(`Page ${index + 1} loaded successfully`)
-          
+
           // After all pages are loaded, fit viewport to show both pages
           if (index === pages.length - 1) {
             // Fit to our calculated world bounds
             this.viewer.viewport.fitBounds(worldBounds, true)
-            
+
             // Calculate appropriate zoom constraints based on world size
             // Min zoom: fit entire world with padding
             const minZoom = this.viewer.viewport.getZoom() * 0.5
             // Max zoom: allow zooming in to ~1:1 pixel ratio (1mm = multiple screen pixels)
             const maxZoom = this.viewer.viewport.getZoom() * 20
-            
+
             this.viewer.viewport.minZoomLevel = minZoom
             this.viewer.viewport.maxZoomLevel = maxZoom
-            
+
             // Re-fit after setting constraints
             this.viewer.viewport.fitBounds(worldBounds, true)
           }
         },
-        error: (event) => {
-          console.error(`Error loading page ${index + 1}:`, event)
+        error: (_event) => {
+          console.error(`Error loading page ${index + 1}:`, _event)
         }
       })
     })
@@ -641,7 +635,7 @@ export class VideFacsRouter {
    * @param {string|null} zoneLabel - Zone label to highlight
    * @param {number|null} zonePageIndex - Page index for the zone
    */
-  switchPages(pageSpec, zoneLabel = null, zonePageIndex = null) {
+  switchPages (pageSpec, zoneLabel = null, zonePageIndex = null) {
     if (!this.viewer || !this.currentPages) return
 
     // Parse new pages
@@ -661,20 +655,20 @@ export class VideFacsRouter {
     let maxX = -Infinity
     let minY = Infinity
     let maxY = -Infinity
-    
+
     pages.forEach(page => {
       const config = this.calculatePagePosition(page)
       const imgMinX = config.x
       const imgMaxX = config.x + config.width
       const imgMinY = config.y
       const imgMaxY = config.y + (config.width * (page.px.height / page.px.width))
-      
+
       minX = Math.min(minX, imgMinX)
       maxX = Math.max(maxX, imgMaxX)
       minY = Math.min(minY, imgMinY)
       maxY = Math.max(maxY, imgMaxY)
     })
-    
+
     const padding = 50
     minX -= padding
     maxX += padding
@@ -688,29 +682,29 @@ export class VideFacsRouter {
     // Add new pages
     pages.forEach((page, index) => {
       const pageConfig = this.calculatePagePosition(page)
-      
+
       this.viewer.addTiledImage({
         tileSource: pageConfig.tileSource,
         x: pageConfig.x,
         y: pageConfig.y,
         width: pageConfig.width,
         degrees: pageConfig.degrees,
-        success: (event) => {
+        success: (_event) => {
           // After last page is loaded, fit viewport
           if (index === pages.length - 1) {
             this.viewer.viewport.fitBounds(worldBounds, true)
-            
+
             const minZoom = this.viewer.viewport.getZoom() * 0.5
             const maxZoom = this.viewer.viewport.getZoom() * 20
-            
+
             this.viewer.viewport.minZoomLevel = minZoom
             this.viewer.viewport.maxZoomLevel = maxZoom
-            
+
             this.viewer.viewport.fitBounds(worldBounds, true)
           }
         },
-        error: (event) => {
-          console.error(`Error loading page ${index + 1}:`, event)
+        error: (_event) => {
+          console.error(`Error loading page ${index + 1}:`, _event)
         }
       })
     })
@@ -732,7 +726,7 @@ export class VideFacsRouter {
   /**
    * Setup page navigation controls
    */
-  setupPageNavigation(currentPages, totalPages) {
+  setupPageNavigation (currentPages, totalPages) {
     const prevBtn = document.getElementById('prev-page')
     const nextBtn = document.getElementById('next-page')
     const pageInfo = document.getElementById('page-info')
@@ -813,7 +807,7 @@ export class VideFacsRouter {
   /**
    * Get current manifest ID from URL
    */
-  getCurrentManifestId() {
+  getCurrentManifestId () {
     const path = this.getCurrentPath()
     const segments = path.split('/').filter(s => s)
     return segments.length > 0 ? segments[0] : 'NK'
@@ -824,14 +818,14 @@ export class VideFacsRouter {
    * @param {Object} page - Page object from edition.json
    * @returns {string} IIIF image URL for thumbnail
    */
-  getIIIFThumbnail(page) {
+  getIIIFThumbnail (page) {
     // Extract base URL from target (remove file extension)
     const baseUrl = page.target.replace(/\.(jpg|tif|tiff)$/i, '')
-    
+
     // Get xywh region from px data
     const { x, y, w, h } = page.px.xywh
     const region = `${x},${y},${w},${h}`
-    
+
     // Return IIIF thumbnail URL with region
     return `${baseUrl}/${region}/,90/0/default.jpg`
   }
@@ -840,7 +834,7 @@ export class VideFacsRouter {
    * Setup page preview panel with thumbnails
    * @param {Array} currentPages - Array of current page numbers
    */
-  setupPagePreviews(currentPages = [1]) {
+  setupPagePreviews (currentPages = [1]) {
     const container = document.getElementById('page-preview-container')
     const panel = document.getElementById('page-preview-panel')
     const toggleBtn = document.getElementById('toggle-preview')
@@ -1053,7 +1047,7 @@ export class VideFacsRouter {
   /**
    * Setup side panel with tabs and panel switching
    */
-  setupSidePanel() {
+  setupSidePanel () {
     const sidePanel = document.getElementById('side-panel')
     const tabs = document.querySelectorAll('.side-panel-tab')
     const sections = document.querySelectorAll('.panel-section')
@@ -1133,7 +1127,7 @@ export class VideFacsRouter {
         }
       })
     })
-    
+
     // Setup filter event listeners using FilterController
     this.filterController.setEditionData(this.currentEdition, this.currentPages)
     this.filterController.setup()
@@ -1143,32 +1137,32 @@ export class VideFacsRouter {
    * @deprecated Use FilterController.syncFilterUIFromState() instead
    * Sync filter UI controls from FilterState
    */
-  syncFilterUIFromState() {
+  syncFilterUIFromState () {
     this.filterController.syncFilterUIFromState()
   }
-  
+
   /**
    * @deprecated Use FilterController.applyFiltersFromUI() instead
    * Read filter values from UI and apply them
    */
-  applyFiltersFromUI() {
+  applyFiltersFromUI () {
     this.filterController.applyFiltersFromUI()
   }
-  
+
   /**
    * @deprecated Use FilterController.populateWorkFilters() instead
    * Populate work filters dynamically from edition data
    */
-  populateWorkFilters() {
+  populateWorkFilters () {
     this.filterController.setEditionData(this.currentEdition, this.currentPages)
     this.filterController.populateWorkFilters()
   }
-  
+
   /**
    * Apply filter settings from URL filter spec
    * @param {string} filterSpec - Filter specification (e.g., "allPages")
    */
-  applyFiltersFromUrl(filterSpec) {
+  applyFiltersFromUrl (filterSpec) {
     this.filterController.applyFiltersFromUrl(filterSpec)
     this.restrictToCurrentPage = this.filterController.restrictToCurrentPage
   }
@@ -1177,22 +1171,23 @@ export class VideFacsRouter {
    * Get current filter spec for URL
    * @returns {string|null} Filter spec or null if using defaults
    */
-  getFilterSpec() {
+  getFilterSpec () {
     return this.filterController.getFilterSpec()
   }
 
   /**
    * Update URL to reflect current filter settings
    */
-  updateUrlWithFilters() {
+  updateUrlWithFilters () {
     if (!this.currentManifestId || !this.currentPageSpec) return
-    
+
     const manifestId = this.currentManifestId
     const pageSpec = this.currentPageSpec
     const filterSpec = this.getFilterSpec()
-    const zoneSpec = this.currentZoneLabel && this.currentZonePageIndex ? 
-      `wz${this.currentZonePageIndex}.${this.currentZoneLabel}` : null
-    
+    const zoneSpec = this.currentZoneLabel && this.currentZonePageIndex
+      ? `wz${this.currentZonePageIndex}.${this.currentZoneLabel}`
+      : null
+
     // Build URL path
     let path = `/${manifestId}/p${pageSpec}/`
     if (filterSpec) {
@@ -1201,28 +1196,28 @@ export class VideFacsRouter {
     if (zoneSpec) {
       path += `${zoneSpec}/`
     }
-    
+
     this.navigate(path)
   }
 
   /**
    * Update all writingZones breadcrumb links to reflect current filter settings
    */
-  updateWritingZoneLinks() {
+  updateWritingZoneLinks () {
     const wzLinks = document.querySelectorAll('.wz-link')
     const filterSpec = this.getFilterSpec()
-    
+
     wzLinks.forEach(link => {
       const pageIndex = parseInt(link.dataset.page, 10)
       const label = link.dataset.label
       const pageSpec = this.getPageSpec(pageIndex)
-      
+
       let zonePath = `/${this.currentManifestId}/p${pageSpec}/`
       if (filterSpec) {
         zonePath += `filter:${filterSpec}/`
       }
       zonePath += `wz${pageIndex}.${label}/`
-      
+
       link.href = `${this.basePath}${zonePath}`
     })
   }
@@ -1231,22 +1226,18 @@ export class VideFacsRouter {
    * Setup writing zones list from current pages
    * @param {Array} currentPageIndices - Array of current page numbers (currently visible)
    */
-  setupWritingZones(currentPageIndices = [1]) {
+  setupWritingZones (currentPageIndices = [1]) {
     const zonesList = document.querySelector('.zones-list')
     if (!zonesList || !this.currentPages || !this.currentEdition) return
 
     const manifestId = this.getCurrentManifestId()
     const sourceLabel = this.currentEdition.source.label
-    
+
     // Check if any content filters are active
     const hasActiveFilters = this.filterState.hasActiveFilters()
 
     // Clear existing zones
     zonesList.innerHTML = ''
-    
-    // Track total zones and filtered zones for feedback
-    let totalZones = 0
-    let visibleZones = 0
 
     // Determine which pages to show zones for
     let pagesToShow = []
@@ -1268,7 +1259,7 @@ export class VideFacsRouter {
     for (let i = pagesToShow[0] === 1 ? 1 : 0; i < pagesToShow.length; i += 2) {
       const pageNum = pagesToShow[i]
       if (pageNum === 1) continue // Already handled
-      
+
       const pair = [pageNum]
       if (i + 1 < pagesToShow.length) {
         pair.push(pagesToShow[i + 1])
@@ -1280,7 +1271,7 @@ export class VideFacsRouter {
     pagePairs.forEach(pair => {
       // Collect zones for this pair that pass filters
       const pairZones = []
-      
+
       pair.forEach(pageIndex => {
         const page = this.currentPages[pageIndex - 1]
         if (!page || !page.writingZones) return
@@ -1293,28 +1284,24 @@ export class VideFacsRouter {
         })
 
         sortedZones.forEach(zone => {
-          totalZones++
-          
           // Apply content filters
           if (hasActiveFilters && !this.filterState.matchesFilters(zone)) {
             return // Skip this zone - doesn't match filters
           }
-          
-          visibleZones++
           pairZones.push({ zone, pageIndex })
         })
       })
-      
+
       // Only add heading if there are zones to show in this pair
       if (pairZones.length === 0) return
-      
+
       // Add page pair heading if showing all pages
       if (!this.restrictToCurrentPage) {
         const headingLi = document.createElement('li')
         headingLi.className = 'page-pair-heading'
-        const pairLabel = pair.length === 2 ? 
-          `Seite ${pair[0]} / ${pair[1]}` : 
-          `Seite ${pair[0]}`
+        const pairLabel = pair.length === 2
+          ? `Seite ${pair[0]} / ${pair[1]}`
+          : `Seite ${pair[0]}`
         headingLi.textContent = pairLabel
         zonesList.appendChild(headingLi)
       }
@@ -1322,26 +1309,26 @@ export class VideFacsRouter {
       // Render filtered zones
       pairZones.forEach(({ zone, pageIndex }) => {
         const page = this.currentPages[pageIndex - 1]
-        
+
         const li = document.createElement('li')
         li.className = 'zone-item'
-        
+
         // Check if this zone is on a currently visible page
         const isOnCurrentPage = currentPageIndices.includes(pageIndex)
         if (!isOnCurrentPage) {
           li.classList.add('other-page')
         }
-          
+
         // Label format: "NK 1/5" (source label, page number, zone label)
         const zoneFullLabel = `${sourceLabel} ${pageIndex}/${zone.label}`
-        
+
         // Create preview container showing the page spread for this zone
         const previewContainer = document.createElement('span')
         previewContainer.className = 'previewContainer'
-        
+
         // Calculate dimensions for double-page spread preview
         const frameHeight = 1 // rem
-        
+
         // Determine which pages to show in preview (the pair containing this zone)
         let previewPageIndices
         if (this.restrictToCurrentPage) {
@@ -1361,32 +1348,32 @@ export class VideFacsRouter {
             }
           }
         }
-        
+
         // Create frame for each page in the preview
         previewPageIndices.forEach(previewPageIndex => {
           const previewPage = this.currentPages[previewPageIndex - 1]
           if (!previewPage) return
-          
+
           const pageFrame = document.createElement('span')
           pageFrame.className = 'previewFrame'
-          
+
           // Calculate aspect ratio for this page
           const pageAspectRatio = previewPage.mm.width / previewPage.mm.height
           const frameWidth = frameHeight * pageAspectRatio
           pageFrame.style.width = `${frameWidth}rem`
           pageFrame.style.height = `${frameHeight}rem`
-          
+
           // Only show the zone on the page where it actually is
           if (previewPageIndex === pageIndex) {
             const actualPreview = document.createElement('span')
             actualPreview.className = isOnCurrentPage ? 'actualPreview' : 'actualPreview grey'
-            
+
             // Check if zone has position data
             if (!zone.wzProps || !zone.wzProps.pos) {
               console.warn(`Zone ${zone.identifier?.zoneId} on page ${pageIndex} has no position data`)
               return // Skip this zone preview if no position data
             }
-            
+
             // Calculate zone position as percentage of page dimensions
             // Zone coordinates are in pixels, relative to page.px.xywh content area
             // Validate page dimensions to avoid division by tiny or zero values
@@ -1394,42 +1381,45 @@ export class VideFacsRouter {
               console.warn(`Invalid page dimensions for page ${pageIndex}:`, page.px.xywh)
               return // Skip this zone preview if data is invalid
             }
-            
+
             const zoneTop = (zone.wzProps.pos.y / page.px.xywh.h) * 100
             const zoneLeft = (zone.wzProps.pos.x / page.px.xywh.w) * 100
             const zoneWidth = (zone.wzProps.pos.w / page.px.xywh.w) * 100
             const zoneHeight = (zone.wzProps.pos.h / page.px.xywh.h) * 100
-            
+
             // Validate percentages are within reasonable bounds
             if (zoneTop > 100 || zoneLeft > 100 || zoneWidth > 100 || zoneHeight > 100 ||
                 zoneTop < 0 || zoneLeft < 0 || zoneWidth < 0 || zoneHeight < 0) {
               console.warn(`Invalid zone percentages for zone ${zone.identifier.zoneId} on page ${pageIndex}:`, {
-                zoneTop, zoneLeft, zoneWidth, zoneHeight,
+                zoneTop,
+                zoneLeft,
+                zoneWidth,
+                zoneHeight,
                 zonePos: zone.wzProps.pos,
                 pageXywh: page.px.xywh
               })
               return // Skip this zone preview if calculations are invalid
             }
-            
+
             actualPreview.style.top = `${zoneTop}%`
             actualPreview.style.left = `${zoneLeft}%`
             actualPreview.style.width = `${zoneWidth}%`
             actualPreview.style.height = `${zoneHeight}%`
-            
+
             pageFrame.appendChild(actualPreview)
           }
-          
+
           previewContainer.appendChild(pageFrame)
         })
-        
+
         // Add label text
         const labelSpan = document.createElement('span')
         labelSpan.className = 'zone-label-text'
         labelSpan.textContent = zoneFullLabel
-        
+
         li.appendChild(labelSpan)
         li.appendChild(previewContainer)
-        
+
         li.dataset.zone = zone.identifier.zoneId
         li.dataset.zoneLabel = zone.label
         li.dataset.pageIndex = pageIndex
@@ -1445,9 +1435,9 @@ export class VideFacsRouter {
           let targetPageSpec
           if (isOnCurrentPage) {
             // Zone is on current page, keep current spread
-            targetPageSpec = currentPageIndices.length === 2 ? 
-              `${currentPageIndices[0]}-${currentPageIndices[1]}` : 
-              `${pageIndex}`
+            targetPageSpec = currentPageIndices.length === 2
+              ? `${currentPageIndices[0]}-${currentPageIndices[1]}`
+              : `${pageIndex}`
           } else {
             // Zone is on different page, navigate to that page's spread
             // Page 1 alone, then pairs: 2/3, 4/5, etc.
@@ -1462,7 +1452,7 @@ export class VideFacsRouter {
               }
             }
           }
-          
+
           // Build path with filters
           const filterSpec = this.getFilterSpec()
           let path = `${this.basePath}/${manifestId}/p${targetPageSpec}/`
@@ -1470,7 +1460,7 @@ export class VideFacsRouter {
             path += `filter:${filterSpec}/`
           }
           path += `wz${pageIndex}.${zone.label}/`
-          
+
           this.navigate(path)
         })
 
@@ -1485,20 +1475,20 @@ export class VideFacsRouter {
         })
 
         zonesList.appendChild(li)
-        
+
         // If this is the active zone, add metadata right after it
         if (this.currentZoneLabel === zone.label && this.currentZonePageIndex === pageIndex) {
           const metadataLi = this.createZoneMetadata(zone)
           zonesList.appendChild(metadataLi)
-          
+
           // Scroll the active zone into view
           setTimeout(() => {
-              li.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-            }, 100)
-          }
-        })
+            li.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+          }, 100)
+        }
+      })
     })
-    
+
     // Setup keyboard navigation
     this.setupZoneKeyboardNavigation()
   }
@@ -1508,11 +1498,11 @@ export class VideFacsRouter {
    * @param {string} zoneLabel - Writing zone label
    * @param {number} zonePageIndex - Page index for the zone (1-based)
    */
-  updateActiveZone(zoneLabel, zonePageIndex) {
+  updateActiveZone (zoneLabel, zonePageIndex) {
     // Update stored zone info
     this.currentZoneLabel = zoneLabel
     this.currentZonePageIndex = zonePageIndex
-    
+
     // Rebuild zones list to move metadata to new active zone
     const currentPageIndices = this.currentPageIndices || []
     if (currentPageIndices.length > 0) {
@@ -1525,7 +1515,7 @@ export class VideFacsRouter {
    * @param {Object} zone - The zone object
    * @returns {HTMLElement} List item containing metadata
    */
-  createZoneMetadata(zone) {
+  createZoneMetadata (zone) {
     const li = document.createElement('li')
     li.className = 'zone-metadata'
 
@@ -1535,10 +1525,10 @@ export class VideFacsRouter {
     // Sketch properties section
     html += '<div class="metadata-section sketch-properties">'
     html += '<div class="metadata-section-title">Skizze:</div>'
-    
+
     if (zone.sketchProps) {
       const props = zone.sketchProps
-      
+
       html += '<div class="metadata-section-content">'
       // Staves and measures
       html += '<div class="metadata-row">'
@@ -1567,28 +1557,28 @@ export class VideFacsRouter {
           const tempoSupplied = props.tempo.supplied ? ' <span class="supplied-indicator" title="editorisch ergänzt">*</span>' : ''
           html += `<span class="metadata-item">Tempo: <strong>${props.tempo.val}</strong>${tempoSupplied}</span>`
         } else {
-          html += `<span class="metadata-item">Tempo: <strong>–</strong></span>`
+          html += '<span class="metadata-item">Tempo: <strong>–</strong></span>'
         }
       }
       html += '</div>'
-      
+
       // Writing zones sequence (if present)
       if (props.writingZones) {
         const wzSequence = Array.isArray(props.writingZones) ? props.writingZones : [props.writingZones]
         const currentGenDescId = zone.identifier?.genDescId
-        
+
         html += '<div class="metadata-row wz-sequence">'
         html += '<span class="metadata-item">Schreibzone: '
-        
+
         wzSequence.forEach((genDescId, idx) => {
           if (idx > 0) html += ' → '
-          
+
           const zoneLoc = this.zoneLookup?.get(genDescId)
           if (zoneLoc) {
             const isActive = genDescId === currentGenDescId
             const sourceLabel = this.currentEdition?.source?.label || ''
             const zoneFullLabel = `${sourceLabel} ${zoneLoc.pageIndex}/${zoneLoc.label}`
-            
+
             if (isActive) {
               html += `<strong class="active-wz">${zoneFullLabel}</strong>`
             } else {
@@ -1607,11 +1597,11 @@ export class VideFacsRouter {
             html += `<span class="wz-unknown">${genDescId.substring(0, 8)}...</span>`
           }
         })
-        
+
         html += '</span>'
         html += '</div>'
       }
-      
+
       html += '</div>'
     } else {
       html += '<div class="no-sketch-props">–</div>'
@@ -1621,33 +1611,33 @@ export class VideFacsRouter {
     // Writing zone properties section
     html += '<div class="metadata-section wz-properties">'
     html += '<div class="metadata-section-title">Schreibzone:</div>'
-    
+
     if (zone.wzProps) {
       const wzProps = zone.wzProps
       html += '<div class="metadata-section-content">'
       html += '<div class="metadata-row">'
-      
+
       if (wzProps.staves) {
         html += `<span class="metadata-item"><span class="metadata-label">Zeile:</span> <strong>${wzProps.staves}</strong></span>`
       }
-      
+
       // Layers count
       if (wzProps.layers && wzProps.layers.length > 0) {
         const layerLabel = wzProps.layers.length === 1 ? 'Schreibschicht' : 'Schreibschichten'
         html += `<span class="metadata-item"><span class="metadata-label">${layerLabel}:</span> <strong>${wzProps.layers.length}</strong></span>`
       }
-      
+
       // Boolean properties - only show if true
       if (wzProps.metaNavigation) {
-        html += `<span class="metadata-item"><span class="metadata-label">Verweiszeichen:</span> <strong>✓</strong></span>`
+        html += '<span class="metadata-item"><span class="metadata-label">Verweiszeichen:</span> <strong>✓</strong></span>'
       }
       if (wzProps.metaClarification) {
-        html += `<span class="metadata-item"><span class="metadata-label">Erläuterungen:</span> <strong>✓</strong></span>`
+        html += '<span class="metadata-item"><span class="metadata-label">Erläuterungen:</span> <strong>✓</strong></span>'
       }
       if (wzProps.otherMeta) {
-        html += `<span class="metadata-item"><span class="metadata-label">Sonstige Metatexte:</span> <strong>✓</strong></span>`
+        html += '<span class="metadata-item"><span class="metadata-label">Sonstige Metatexte:</span> <strong>✓</strong></span>'
       }
-      
+
       html += '</div>'
       html += '</div>'
     } else {
@@ -1659,11 +1649,11 @@ export class VideFacsRouter {
     html += '<div class="metadata-section work-relations">'
     html += '<div class="metadata-section-title">Mögliche Werkbezüge:</div>'
     html += '<div class="metadata-section-content">'
-    
+
     if (zone.workRelations && zone.workRelations.length > 0) {
       // Group all relations by work (opus + work title)
       const groupedRelations = new Map()
-      
+
       zone.workRelations.forEach(relation => {
         const workKey = `${relation.opus || ''}|${relation.work || ''}`
         if (!groupedRelations.has(workKey)) {
@@ -1678,33 +1668,33 @@ export class VideFacsRouter {
           target: relation.target
         })
       })
-      
+
       // Render each work group
-      groupedRelations.forEach((group, workKey) => {
-        html += `<div class="work-relation-item">`
-        
+      groupedRelations.forEach((group) => {
+        html += '<div class="work-relation-item">'
+
         // Work title
         if (group.opus || group.work) {
-          html += `<div class="work-title">`
+          html += '<div class="work-title">'
           if (group.opus) html += `<strong>${group.opus}</strong> `
           if (group.work) html += group.work
-          html += `</div>`
+          html += '</div>'
         }
-        
+
         // All targets for this work
-        group.targets.forEach(({relationId, target}) => {
+        group.targets.forEach(({ relationId, target }) => {
           if (target) {
             let targetText = ''
-            
+
             // Get movement info from start/end or direct mdivPos
             let movementText = ''
-            const mdivPos = target.mdivPos || 
+            const mdivPos = target.mdivPos ||
                            (target.start && target.start.mdivPos) ||
                            (target.end && target.end.mdivPos)
             if (mdivPos) {
               movementText = `${mdivPos}. Satz`
             }
-            
+
             // Show movement/section info based on what fields are present
             if (target.start && target.end) {
               // Measure range (has start/end)
@@ -1723,13 +1713,13 @@ export class VideFacsRouter {
               // Just movement info
               targetText = movementText
             }
-            
+
             if (targetText) {
               html += `<div class="work-target" data-relation-id="${relationId || ''}">${targetText}</div>`
             }
           }
         })
-        
+
         html += '</div>'
       })
     } else {
@@ -1748,7 +1738,7 @@ export class VideFacsRouter {
 
     html += '</div>'
     li.innerHTML = html
-    
+
     // Add click handler for detail button
     setTimeout(() => {
       const detailBtn = li.querySelector('.open-detail-btn')
@@ -1760,31 +1750,31 @@ export class VideFacsRouter {
         })
       }
     }, 0)
-    
+
     return li
   }
 
   /**
    * Setup keyboard navigation for zones list
    */
-  setupZoneKeyboardNavigation() {
+  setupZoneKeyboardNavigation () {
     // Remove existing listener if any
     if (this.zoneKeyboardHandler) {
       document.removeEventListener('keydown', this.zoneKeyboardHandler)
     }
-    
+
     this.zoneKeyboardHandler = (e) => {
       // Only handle if zones list is visible and not typing in an input
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
-      
+
       const zonesList = document.querySelector('.zones-list')
       if (!zonesList) return
-      
+
       const zoneItems = Array.from(zonesList.querySelectorAll('.zone-item'))
       if (zoneItems.length === 0) return
-      
+
       const activeIndex = zoneItems.findIndex(item => item.classList.contains('active'))
-      
+
       if (e.key === 'ArrowDown') {
         e.preventDefault()
         // Move to next zone
@@ -1797,7 +1787,7 @@ export class VideFacsRouter {
         zoneItems[prevIndex].click()
       }
     }
-    
+
     document.addEventListener('keydown', this.zoneKeyboardHandler)
   }
 
@@ -1806,7 +1796,7 @@ export class VideFacsRouter {
    * @param {string} keySig - Key signature (e.g., '3f', '2s', '0')
    * @returns {string} Formatted key signature
    */
-  formatKeySig(keySig) {
+  formatKeySig (keySig) {
     if (keySig === '0') return '0'
     const match = keySig.match(/^(\d+)([fs])$/)
     if (!match) return keySig
@@ -1818,7 +1808,7 @@ export class VideFacsRouter {
   /**
    * Populate the notebook modal with actual page data
    */
-  populateNotebookModal() {
+  populateNotebookModal () {
     const tbody = document.querySelector('#notebook-modal tbody')
     if (!tbody || !this.currentPages) return
 
@@ -1827,7 +1817,7 @@ export class VideFacsRouter {
     // Track surfaceDoc for color assignment (per page, not per row)
     let colorIndex = 0
     const surfaceDocColors = new Map()
-    
+
     // Helper to get color class for a surfaceDoc
     const getColorClass = (surfaceDoc) => {
       if (!surfaceDoc) return ''
@@ -1842,29 +1832,29 @@ export class VideFacsRouter {
     while (i < this.currentPages.length) {
       const tr = document.createElement('tr')
       const manifestId = this.currentManifestId
-      
+
       if (i === 0) {
         // First page (recto only, right side)
         const page = this.currentPages[0]
         const pageNum = 1
         const colorClass = getColorClass(page.surfaceDoc)
-        
+
         // Empty verso cells
         const emptyPageCell = document.createElement('td')
         emptyPageCell.className = 'cell-page cell-empty'
         tr.appendChild(emptyPageCell)
-        
+
         const emptySourceCell = document.createElement('td')
         emptySourceCell.className = 'cell-source cell-verso cell-empty'
         tr.appendChild(emptySourceCell)
-        
+
         // Recto preview cell
         const rectoPreviewCell = document.createElement('td')
         rectoPreviewCell.className = `cell-source cell-recto cell-preview ${colorClass}`
         const rectoPreview = this.createPagePreview(page, pageNum)
         rectoPreviewCell.appendChild(rectoPreview)
         tr.appendChild(rectoPreviewCell)
-        
+
         // Recto page number cell
         const rectoPageCell = document.createElement('td')
         rectoPageCell.className = `cell-page cell-right ${colorClass}`
@@ -1874,7 +1864,7 @@ export class VideFacsRouter {
         pageLink.textContent = pageNum
         rectoPageCell.appendChild(pageLink)
         tr.appendChild(rectoPageCell)
-        
+
         i++
       } else {
         // Pairs of pages (verso + recto)
@@ -1884,7 +1874,7 @@ export class VideFacsRouter {
         const rectoPageNum = i + 2
         const versoColorClass = versoPage ? getColorClass(versoPage.surfaceDoc) : ''
         const rectoColorClass = rectoPage ? getColorClass(rectoPage.surfaceDoc) : ''
-        
+
         // Verso page number cell
         const versoPageCell = document.createElement('td')
         versoPageCell.className = `cell-page cell-right ${versoColorClass}`
@@ -1896,7 +1886,7 @@ export class VideFacsRouter {
           versoPageCell.appendChild(pageLink)
         }
         tr.appendChild(versoPageCell)
-        
+
         // Verso preview cell
         const versoPreviewCell = document.createElement('td')
         versoPreviewCell.className = `cell-source cell-verso cell-preview ${versoColorClass}`
@@ -1905,7 +1895,7 @@ export class VideFacsRouter {
           versoPreviewCell.appendChild(versoPreview)
         }
         tr.appendChild(versoPreviewCell)
-        
+
         // Recto preview cell
         const rectoPreviewCell = document.createElement('td')
         rectoPreviewCell.className = `cell-source cell-recto cell-preview ${rectoColorClass}`
@@ -1914,7 +1904,7 @@ export class VideFacsRouter {
           rectoPreviewCell.appendChild(rectoPreview)
         }
         tr.appendChild(rectoPreviewCell)
-        
+
         // Recto page number cell
         const rectoPageCell = document.createElement('td')
         rectoPageCell.className = `cell-page cell-right ${rectoColorClass}`
@@ -1926,10 +1916,10 @@ export class VideFacsRouter {
           rectoPageCell.appendChild(pageLink)
         }
         tr.appendChild(rectoPageCell)
-        
+
         i += 2
       }
-      
+
       tbody.appendChild(tr)
     }
   }
@@ -1940,34 +1930,34 @@ export class VideFacsRouter {
    * @param {number} pageNum - Page number (1-based)
    * @returns {HTMLElement} Preview container
    */
-  createPagePreview(page, pageNum) {
+  createPagePreview (page, pageNum) {
     const container = document.createElement('div')
     container.className = 'page-preview-wrapper'
     container.dataset.surfaceDoc = page.surfaceDoc || ''
-    
+
     const thumbnail = this.getIIIFThumbnail(page)
     const img = document.createElement('img')
     img.src = thumbnail
     img.alt = '' // Empty alt for cleaner loading appearance
     img.crossOrigin = 'anonymous'
     img.className = 'page-preview-img'
-    
+
     const label = document.createElement('div')
     label.className = 'page-preview-label'
     const surfaceDoc = page.surfaceDoc || ''
     const surfaceLabel = page.surfaceLabel || ''
     label.textContent = surfaceDoc && surfaceLabel ? `${surfaceDoc}: ${surfaceLabel}` : `Seite ${pageNum}`
-    
+
     container.appendChild(img)
     container.appendChild(label)
-    
+
     return container
   }
 
   /**
    * Setup zoom controls and modal
    */
-  setupZoomControls() {
+  setupZoomControls () {
     const zoomInBtn = document.getElementById('zoom-in')
     const zoomOutBtn = document.getElementById('zoom-out')
     const toggleMarginsBtn = document.getElementById('toggle-margins')
@@ -1994,19 +1984,19 @@ export class VideFacsRouter {
       toggleMarginsBtn.addEventListener('click', () => {
         // Toggle the clipping state
         this.clipMargins = !this.clipMargins
-        
+
         // Update button appearance
         if (this.clipMargins) {
           toggleMarginsBtn.classList.add('active')
         } else {
           toggleMarginsBtn.classList.remove('active')
         }
-        
+
         // Apply clipping to existing TiledImages using setClip
         if (this.viewer && this.currentlyDisplayedPages) {
           const pages = this.currentlyDisplayedPages
           const hideCenter = this.clipMargins
-          
+
           pages.forEach((page, index) => {
             const tiledImage = this.viewer.world.getItemAt(index)
             if (tiledImage) {
@@ -2048,7 +2038,7 @@ export class VideFacsRouter {
   /**
    * Render 404 page
    */
-  renderNotFound(path) {
+  renderNotFound (path) {
     this.contentEl.setContent(
       templates.error(
         '404 - Not Found',

@@ -17,7 +17,7 @@ const cache = (window.__BW_DataCache ??= new Map())
  * @param {string} url
  * @returns {Promise<any>}
  */
-export function fetchCached(url) {
+export function fetchCached (url) {
   if (!cache.has(url)) {
     cache.set(
       url,
