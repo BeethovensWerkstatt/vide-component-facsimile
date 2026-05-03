@@ -23,7 +23,8 @@ export function fetchCached (url) {
       url,
       fetch(url).then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText} — ${url}`)
-        return r.json()
+        return r.clone().json().catch(() => r.text()) // Fallback to text if JSON parsing fails
+        // return r.json()
       })
     )
   }

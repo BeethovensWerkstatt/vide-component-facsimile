@@ -1235,3 +1235,28 @@ vide-facs-section {
   fill: #000000;
   opacity: 0.2;
 }
+
+.pageShapes svg {
+  .writingZone {
+    path {
+      fill-opacity: 0;
+    }
+
+    &.hover path {
+      opacity: 0.8;
+      stroke-width: 5px;
+      fill-opacity: 1;
+      fill: #00b7ff;
+    }
+
+    &.active path {
+      opacity: 0.8;
+      stroke-width: 5px;
+      fill-opacity: 1;
+      fill: #00b7ff;
+    }
+  }
+  .unassigned {
+    fill-opacity: 0;
+  }
+}

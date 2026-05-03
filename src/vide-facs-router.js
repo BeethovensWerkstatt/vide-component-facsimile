@@ -566,7 +566,11 @@ export class VideFacsRouter {
       // OSD v5 specific: reduce assertion strictness during navigation
       debugMode: false,
       // Silently ignore getTileAtPoint errors during navigation
-      silenceMultiImageWarnings: true
+      silenceMultiImageWarnings: true,
+      zoomPerClick: 1,
+      crossOriginPolicy: 'Anonymous',
+      tileRetryMax: 3,
+      tileRetryDelay: 1500 // 1.5 seconds
     })
 
     // Store pages and world bounds for later use (e.g., toggling margins)
@@ -574,8 +578,10 @@ export class VideFacsRouter {
     this.currentWorldBounds = worldBounds
 
     // Add each page with calculated positioning
-    pages.forEach((page, index) => {
+    pages.forEach(async (page, index) => {
       const pageConfig = this.calculatePagePosition(page)
+
+      // console.log(`Adding page ${index + 1} with config as follows:`, pageConfig, 'page:', page)
 
       this.viewer.addTiledImage({
         tileSource: pageConfig.tileSource,
@@ -584,7 +590,7 @@ export class VideFacsRouter {
         width: pageConfig.width,
         degrees: pageConfig.degrees,
         success: (_event) => {
-          console.log(`Page ${index + 1} loaded successfully`)
+          // console.log(`Page ${index + 1} loaded successfully`)
 
           // After all pages are loaded, fit viewport to show both pages
           if (index === pages.length - 1) {
@@ -608,7 +614,57 @@ export class VideFacsRouter {
           console.error(`Error loading page ${index + 1}:`, _event)
         }
       })
+
+      const shapesUrl = page.shapesLink
+      const shapesSvg = await fetchCached(shapesUrl)
+      const parser = new DOMParser()
+      const shapesDoc = parser.parseFromString(shapesSvg, 'image/svg+xml')
+      shapesDoc.documentElement.setAttribute('width', '100%')
+      shapesDoc.documentElement.setAttribute('height', '100%')
+
+      if (shapesSvg) {
+        const wrapper = document.createElement('div')
+        wrapper.classList.add('pageShapes')
+        wrapper.id = `shapes-page-${index + 1}`
+        wrapper.setAttribute('data-url', shapesUrl)
+
+        const innerWrapper = document.createElement('div')
+        innerWrapper.classList.add('pageShapesRotate')
+        innerWrapper.style.width = '100%'
+        innerWrapper.style.height = '100%'
+        innerWrapper.setAttribute('data-rotation', pageConfig.degrees)
+        innerWrapper.style.transform = 'rotate(' + pageConfig.degrees + 'deg)'
+        wrapper.appendChild(innerWrapper)
+        innerWrapper.appendChild(shapesDoc.documentElement)
+        this.viewer.addOverlay({
+          element: wrapper,
+          location: new OpenSeadragon.Rect(pageConfig.x, pageConfig.y, pageConfig.width, pageConfig.width * (page.px.height / page.px.width))
+        })
+      }
     })
+
+    this.viewer.addHandler('canvas-click', (event) => {
+      const target = event.originalTarget
+      if (target && target.localName === 'path' && target.closest('svg')) {
+        const id = target.id
+        const layerId = target.closest('.writingLayer')?.id
+        const wzId = target.closest('.writingZone')?.id
+        const unassigned = !!target.closest('.unassigned')
+        if (!unassigned) {
+          console.log('Clicked shape ' + id + ' from layer ' + layerId + ' in zone ' + wzId)
+        } else {
+          console.log('Clicked unassigned shape ' + id)
+        }
+      }
+    })
+
+    /* this.viewer.addHandler('canvas-enter', (event) => {
+      const target = event.originalTarget
+      if (target && target.localName === 'path' && target.nameSpaceURI === 'http://www.w3.org/2000/svg') {
+        const id = target.id
+        console.log(`Hovered into SVG path with id: ${id}`)
+      }
+    }) */
 
     // Store current page indices for navigation
     this.currentPageIndices = currentPageIndices
@@ -650,6 +706,9 @@ export class VideFacsRouter {
       this.viewer.world.removeItem(this.viewer.world.getItemAt(0))
     }
 
+    // Remove all existing overlays
+    this.viewer.clearOverlays()
+
     // Calculate world bounds for new pages
     let minX = Infinity
     let maxX = -Infinity
@@ -680,9 +739,10 @@ export class VideFacsRouter {
     this.currentlyDisplayedPages = pages
 
     // Add new pages
-    pages.forEach((page, index) => {
+    pages.forEach(async (page, index) => {
       const pageConfig = this.calculatePagePosition(page)
 
+      console.log(8881, 'page: ', page)
       this.viewer.addTiledImage({
         tileSource: pageConfig.tileSource,
         x: pageConfig.x,
@@ -707,6 +767,33 @@ export class VideFacsRouter {
           console.error(`Error loading page ${index + 1}:`, _event)
         }
       })
+
+      const shapesUrl = page.shapesLink
+      const shapesSvg = await fetchCached(shapesUrl)
+      const parser = new DOMParser()
+      const shapesDoc = parser.parseFromString(shapesSvg, 'image/svg+xml')
+      shapesDoc.documentElement.setAttribute('width', '100%')
+      shapesDoc.documentElement.setAttribute('height', '100%')
+
+      if (shapesSvg) {
+        const wrapper = document.createElement('div')
+        wrapper.classList.add('pageShapes')
+        wrapper.id = `shapes-page-${index + 1}`
+        wrapper.setAttribute('data-url', shapesUrl)
+
+        const innerWrapper = document.createElement('div')
+        innerWrapper.classList.add('pageShapesRotate')
+        innerWrapper.style.width = '100%'
+        innerWrapper.style.height = '100%'
+        innerWrapper.setAttribute('data-rotation', pageConfig.degrees)
+        innerWrapper.style.transform = 'rotate(' + pageConfig.degrees + 'deg)'
+        wrapper.appendChild(innerWrapper)
+        innerWrapper.appendChild(shapesDoc.documentElement)
+        this.viewer.addOverlay({
+          element: wrapper,
+          location: new OpenSeadragon.Rect(pageConfig.x, pageConfig.y, pageConfig.width, pageConfig.width * (page.px.height / page.px.width))
+        })
+      }
     })
 
     // Update stored indices
@@ -1466,12 +1553,13 @@ export class VideFacsRouter {
 
         // Hover handlers
         li.addEventListener('mouseenter', () => {
-          // TODO: Highlight zone in viewer
           li.classList.add('hover')
+          document.querySelector('#' + zone.identifier.svgId)?.classList.add('hover')
         })
 
         li.addEventListener('mouseleave', () => {
           li.classList.remove('hover')
+          document.querySelector('#' + zone.identifier.svgId)?.classList.remove('hover')
         })
 
         zonesList.appendChild(li)
@@ -1516,6 +1604,11 @@ export class VideFacsRouter {
    * @returns {HTMLElement} List item containing metadata
    */
   createZoneMetadata (zone) {
+    // remove old highlighting
+    document.querySelector('svg g.writingZone.active')?.classList.remove('active')
+    // add new highlighting
+    document.querySelector('#' + zone.identifier.svgId)?.classList.add('active')
+
     const li = document.createElement('li')
     li.className = 'zone-metadata'
 
