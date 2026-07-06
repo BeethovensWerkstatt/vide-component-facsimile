@@ -393,8 +393,8 @@ export class VideFacsRouter {
     }
 
     // Skip clipping for rotated images - OpenSeadragon's setClip doesn't handle rotation well
-    // A rotation of more than 0.5 degrees can cause issues
-    if (Math.abs(rotation) > 0.5) {
+    // A rotation of more than 1.5 degrees can cause issues
+    if (Math.abs(rotation) > 1.5) {
       console.log(`Skipping clip for rotated page (rotation=${rotation})`)
       return null
     }
@@ -653,18 +653,10 @@ export class VideFacsRouter {
         if (!unassigned) {
           console.log('Clicked shape ' + id + ' from layer ' + layerId + ' in zone ' + wzId)
         } else {
-          console.log('Clicked unassigned shape ' + id)
+          // console.log('Clicked unassigned shape ' + id)
         }
       }
     })
-
-    /* this.viewer.addHandler('canvas-enter', (event) => {
-      const target = event.originalTarget
-      if (target && target.localName === 'path' && target.nameSpaceURI === 'http://www.w3.org/2000/svg') {
-        const id = target.id
-        console.log(`Hovered into SVG path with id: ${id}`)
-      }
-    }) */
 
     // Store current page indices for navigation
     this.currentPageIndices = currentPageIndices
@@ -742,7 +734,6 @@ export class VideFacsRouter {
     pages.forEach(async (page, index) => {
       const pageConfig = this.calculatePagePosition(page)
 
-      console.log(8881, 'page: ', page)
       this.viewer.addTiledImage({
         tileSource: pageConfig.tileSource,
         x: pageConfig.x,
@@ -1114,10 +1105,20 @@ export class VideFacsRouter {
 
     // Toggle panel visibility
     if (toggleBtn) {
-      toggleBtn.addEventListener('click', () => {
-        panel.classList.toggle('collapsed')
+      // Overwrite any previous handler because setupPagePreviews runs repeatedly.
+      toggleBtn.onclick = () => {
+        const livePanel = document.getElementById('page-preview-panel')
+        if (!livePanel) return
+
+        livePanel.classList.toggle('collapsed')
+        toggleBtn.textContent = livePanel.classList.contains('collapsed') ? '▼' : '▲'
+      }
+
+      if (panel) {
         toggleBtn.textContent = panel.classList.contains('collapsed') ? '▼' : '▲'
-      })
+      }
+    } else {
+      // console.warn('Toggle button for page preview panel not found')
     }
 
     // Preserve natural trackpad/touch scrolling in both directions; no interception
@@ -1746,7 +1747,6 @@ export class VideFacsRouter {
     if (zone.workRelations && zone.workRelations.length > 0) {
       // Group all relations by work (opus + work title)
       const groupedRelations = new Map()
-
       zone.workRelations.forEach(relation => {
         const workKey = `${relation.opus || ''}|${relation.work || ''}`
         if (!groupedRelations.has(workKey)) {
@@ -1825,7 +1825,7 @@ export class VideFacsRouter {
     // Add button to open detail view
     if (zone.identifier && zone.identifier.atFilename) {
       html += '<div class="metadata-actions">'
-      html += `<button class="open-detail-btn" data-at-filename="${zone.identifier.atFilename}">Zeige Transkriptionen</button>`
+      html += '<a class="open-detail-btn" href="http://localhost:4000/transcription/NK/wz29.5/">Zeige Transkriptionen</a>'// `<button class="open-detail-btn" data-at-filename="${zone.identifier.atFilename}">Zeige Transkriptionen</button>`
       html += '</div>'
     }
 
@@ -1833,7 +1833,7 @@ export class VideFacsRouter {
     li.innerHTML = html
 
     // Add click handler for detail button
-    setTimeout(() => {
+    /* setTimeout(() => {
       const detailBtn = li.querySelector('.open-detail-btn')
       if (detailBtn) {
         detailBtn.addEventListener('click', (e) => {
@@ -1842,7 +1842,7 @@ export class VideFacsRouter {
           alert(`Öffne ${atFilename}`)
         })
       }
-    }, 0)
+    }, 0) */
 
     return li
   }
@@ -2096,6 +2096,7 @@ export class VideFacsRouter {
               if (hideCenter) {
                 const clipRect = this.calculateClipRect(page, true, tiledImage, this.viewer)
                 tiledImage.setClip(clipRect)
+                // console.log('clipping page', page, 'with rect', clipRect)
               } else {
                 tiledImage.setClip(null)
               }
