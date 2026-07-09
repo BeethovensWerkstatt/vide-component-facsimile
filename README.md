@@ -48,6 +48,21 @@ In your HTML page:
 <script type="module" src="vide-component-facsimile/dist/index.js"></script>
 ```
 
+To point the component at a different API root, pass `base-api` on the root element:
+
+```html
+<vide-facs base-api="https://example.org/exist/apps/api/document"></vide-facs>
+```
+
+To override the manifest-to-URL mapping, pass `edition-urls` as JSON:
+
+```html
+<vide-facs
+    base-api="https://example.org/exist/apps/api/document"
+    edition-urls='{"NK":"m57bab171-9222-451d-8f7d-7fe7db6064bb/overview.json"}'
+></vide-facs>
+```
+
 ## Development
 
 ### Watch mode for CSS

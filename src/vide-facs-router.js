@@ -4,13 +4,42 @@ import { ViewerManager } from './viewer-manager.js'
 import { FilterController } from './filter-controller.js'
 import { fetchCached } from './data-cache.js'
 
+const DEFAULT_BASE_API = 'http://localhost:8080/exist/apps/api/document'
+const DEFAULT_EDITION_URLS = {
+  NK: 'm57bab171-9222-451d-8f7d-7fe7db6064bb/overview.json'
+}
+
+function isAbsoluteUrl (value) {
+  return /^(?:[a-z][a-z\d+.-]*:)?\/\//i.test(String(value || ''))
+}
+
+function resolveUrl (baseUrl, value) {
+  const raw = String(value || '')
+  if (!raw) return raw
+  if (isAbsoluteUrl(raw)) return raw
+
+  const trimmedBase = String(baseUrl || '').replace(/\/+$/, '')
+  const trimmedValue = raw.replace(/^\/+/, '')
+  return `${trimmedBase}/${trimmedValue}`
+}
+
+function normalizeEditionUrls (baseApi, editionUrls) {
+  const merged = { ...DEFAULT_EDITION_URLS, ...(editionUrls || {}) }
+
+  return Object.fromEntries(
+    Object.entries(merged).map(([manifestId, url]) => [manifestId, resolveUrl(baseApi, url)])
+  )
+}
+
 /**
  * VideFacsRouter
  * Client-side router using the History API for the Digital Facsimile SPA island
  */
 export class VideFacsRouter {
-  constructor (appElement) {
+  constructor (appElement, config = {}) {
     this.basePath = '/facs'
+    this.baseApi = config.baseApi || DEFAULT_BASE_API
+    this.editionUrls = normalizeEditionUrls(this.baseApi, config.editionUrls)
     this.app = appElement
     this.contentEl = appElement.querySelector('vide-facs-content')
     this.filterState = new FilterState()
@@ -219,12 +248,7 @@ export class VideFacsRouter {
    * @param {number} zonePageIndex - Page index for the zone (1-based), optional
    */
   async loadManifestAndRender (manifestId, pageSpec = null, zoneLabel = null, zonePageIndex = null) {
-    // Map manifest IDs to edition data URLs
-    const editionUrls = {
-      NK: 'http://localhost:8080/exist/apps/api/document/m57bab171-9222-451d-8f7d-7fe7db6064bb/overview.json'// '/temp/edition.json'
-    }
-
-    const editionUrl = editionUrls[manifestId]
+    const editionUrl = this.editionUrls[manifestId]
     if (!editionUrl) {
       this.renderNotFound(`/facs/${manifestId}/`)
       return

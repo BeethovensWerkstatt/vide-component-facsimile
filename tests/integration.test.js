@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { FilterState } from '../src/filter-state.js'
+import { VideFacsRouter } from '../src/vide-facs-router.js'
 
 describe('FilterState Integration', () => {
   beforeEach(() => {
@@ -129,6 +130,50 @@ describe('FilterState Integration', () => {
 
       const filterState = new FilterState()
       expect(filterState.restrictToCurrentPage).toBe(true)
+    })
+  })
+
+  describe('API base configuration', () => {
+    it('builds overview URLs from a custom base-api value', async () => {
+      const router = Object.create(VideFacsRouter.prototype)
+      router.basePath = '/facs'
+      router.baseApi = 'https://example.org/exist/apps/api/document'
+      router.editionUrls = {
+        NK: 'https://example.org/exist/apps/api/document/m57bab171-9222-451d-8f7d-7fe7db6064bb/overview.json'
+      }
+      router.contentEl = { setContent: vi.fn() }
+      router.renderNotFound = vi.fn()
+      router.renderViewer = vi.fn()
+      router.buildZoneLookupMap = vi.fn()
+      router.parsePageSpec = vi.fn(() => [])
+      router.currentPages = []
+
+      const fetchCached = vi.spyOn(await import('../src/data-cache.js'), 'fetchCached').mockResolvedValue([{ source: { pages: [] } }])
+
+      await router.loadManifestAndRender('NK')
+
+      expect(fetchCached).toHaveBeenCalledWith('https://example.org/exist/apps/api/document/m57bab171-9222-451d-8f7d-7fe7db6064bb/overview.json')
+    })
+
+    it('uses a custom editionUrls mapping when provided', async () => {
+      const router = Object.create(VideFacsRouter.prototype)
+      router.basePath = '/facs'
+      router.baseApi = 'https://example.org/exist/apps/api/document'
+      router.editionUrls = {
+        NK: 'https://cdn.example.org/custom-overview.json'
+      }
+      router.contentEl = { setContent: vi.fn() }
+      router.renderNotFound = vi.fn()
+      router.renderViewer = vi.fn()
+      router.buildZoneLookupMap = vi.fn()
+      router.parsePageSpec = vi.fn(() => [])
+      router.currentPages = []
+
+      const fetchCached = vi.spyOn(await import('../src/data-cache.js'), 'fetchCached').mockResolvedValue([{ source: { pages: [] } }])
+
+      await router.loadManifestAndRender('NK')
+
+      expect(fetchCached).toHaveBeenCalledWith('https://cdn.example.org/custom-overview.json')
     })
   })
 })

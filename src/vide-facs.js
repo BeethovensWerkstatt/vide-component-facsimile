@@ -6,6 +6,8 @@ export class VideFacs extends HTMLElement {
   constructor () {
     super()
     this.router = null
+    this.baseApi = null
+    this.editionUrls = null
   }
 
   connectedCallback () {
@@ -23,8 +25,34 @@ export class VideFacs extends HTMLElement {
     setTimeout(() => {
       // VideFacsRouter is imported globally via index.js
       const VideFacsRouter = window.VideFacsRouter
-      this.router = new VideFacsRouter(this)
+      this.router = new VideFacsRouter(this, this.getConfig())
       window.router = this.router
     }, 100)
+  }
+
+  getConfig () {
+    const editionUrls = this.getEditionUrlsConfig()
+
+    return {
+      baseApi: this.getAttribute('base-api') || this.baseApi || undefined,
+      editionUrls: Object.keys(editionUrls).length > 0 ? editionUrls : undefined
+    }
+  }
+
+  getEditionUrlsConfig () {
+    if (this.editionUrls && typeof this.editionUrls === 'object' && !Array.isArray(this.editionUrls)) {
+      return this.editionUrls
+    }
+
+    const raw = this.getAttribute('edition-urls')
+    if (!raw) return {}
+
+    try {
+      const parsed = JSON.parse(raw)
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+    } catch (err) {
+      console.error('[VideFacs] Invalid edition-urls attribute JSON', err)
+      return {}
+    }
   }
 }
