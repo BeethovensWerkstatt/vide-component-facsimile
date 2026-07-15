@@ -4,8 +4,8 @@ import { ViewerManager } from './viewer-manager.js'
 import { FilterController } from './filter-controller.js'
 import { fetchCached } from './data-cache.js'
 
-const DEFAULT_BASE_API = 'http://localhost:8080/exist/apps/api/document'
-const DEFAULT_EDITION_URLS = {
+const DEFAULT_API_BASE = 'http://localhost:8080/exist/apps/api/document'
+const DEFAULT_DOCUMENTS = {
   NK: 'm57bab171-9222-451d-8f7d-7fe7db6064bb/overview.json'
 }
 
@@ -23,11 +23,11 @@ function resolveUrl (baseUrl, value) {
   return `${trimmedBase}/${trimmedValue}`
 }
 
-function normalizeEditionUrls (baseApi, editionUrls) {
-  const merged = { ...DEFAULT_EDITION_URLS, ...(editionUrls || {}) }
+function normalizeDocuments (apiBase, documents) {
+  const merged = { ...DEFAULT_DOCUMENTS, ...(documents || {}) }
 
   return Object.fromEntries(
-    Object.entries(merged).map(([manifestId, url]) => [manifestId, resolveUrl(baseApi, url)])
+    Object.entries(merged).map(([manifestId, url]) => [manifestId, resolveUrl(apiBase, url)])
   )
 }
 
@@ -38,8 +38,8 @@ function normalizeEditionUrls (baseApi, editionUrls) {
 export class VideFacsRouter {
   constructor (appElement, config = {}) {
     this.basePath = '/facs'
-    this.baseApi = config.baseApi || DEFAULT_BASE_API
-    this.editionUrls = normalizeEditionUrls(this.baseApi, config.editionUrls)
+    this.apiBase = config.apiBase || DEFAULT_API_BASE
+    this.documents = normalizeDocuments(this.apiBase, config.documents)
     this.app = appElement
     this.contentEl = appElement.querySelector('vide-facs-content')
     this.filterState = new FilterState()
@@ -248,8 +248,8 @@ export class VideFacsRouter {
    * @param {number} zonePageIndex - Page index for the zone (1-based), optional
    */
   async loadManifestAndRender (manifestId, pageSpec = null, zoneLabel = null, zonePageIndex = null) {
-    const editionUrl = this.editionUrls[manifestId]
-    if (!editionUrl) {
+    const overviewUrl = this.documents[manifestId]
+    if (!overviewUrl) {
       this.renderNotFound(`/facs/${manifestId}/`)
       return
     }
@@ -259,7 +259,7 @@ export class VideFacsRouter {
       this.contentEl.setContent(templates.loading('Loading edition data...'))
 
       // Fetch edition data (served from cache if already loaded by another SPA island)
-      const editionData = await fetchCached(editionUrl)
+      const editionData = await fetchCached(overviewUrl)
 
       // Extract the actual data (skip HTTP headers at indices 0-3, data is in array at index 4)
       // The structure is: [header, header, header, header, [actualData]]

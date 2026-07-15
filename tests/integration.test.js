@@ -134,11 +134,11 @@ describe('FilterState Integration', () => {
   })
 
   describe('API base configuration', () => {
-    it('builds overview URLs from a custom base-api value', async () => {
+    it('builds overview URLs from a custom api-base value', async () => {
       const router = Object.create(VideFacsRouter.prototype)
       router.basePath = '/facs'
-      router.baseApi = 'https://example.org/exist/apps/api/document'
-      router.editionUrls = {
+      router.apiBase = 'https://example.org/exist/apps/api/document'
+      router.documents = {
         NK: 'https://example.org/exist/apps/api/document/m57bab171-9222-451d-8f7d-7fe7db6064bb/overview.json'
       }
       router.contentEl = { setContent: vi.fn() }
@@ -155,11 +155,11 @@ describe('FilterState Integration', () => {
       expect(fetchCached).toHaveBeenCalledWith('https://example.org/exist/apps/api/document/m57bab171-9222-451d-8f7d-7fe7db6064bb/overview.json')
     })
 
-    it('uses a custom editionUrls mapping when provided', async () => {
+    it('uses a custom documents mapping when provided', async () => {
       const router = Object.create(VideFacsRouter.prototype)
       router.basePath = '/facs'
-      router.baseApi = 'https://example.org/exist/apps/api/document'
-      router.editionUrls = {
+      router.apiBase = 'https://example.org/exist/apps/api/document'
+      router.documents = {
         NK: 'https://cdn.example.org/custom-overview.json'
       }
       router.contentEl = { setContent: vi.fn() }
