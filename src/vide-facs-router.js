@@ -4,9 +4,9 @@ import { ViewerManager } from './viewer-manager.js'
 import { FilterController } from './filter-controller.js'
 import { fetchCached } from './data-cache.js'
 
-const DEFAULT_API_BASE = 'http://localhost:8080/exist/apps/api/document'
+const DEFAULT_API_BASE = 'http://localhost:8080/exist/apps/api'
 const DEFAULT_DOCUMENTS = {
-  NK: 'm57bab171-9222-451d-8f7d-7fe7db6064bb/overview.json'
+  NK: '/document/m57bab171-9222-451d-8f7d-7fe7db6064bb/overview.json'
 }
 
 function isAbsoluteUrl (value) {
