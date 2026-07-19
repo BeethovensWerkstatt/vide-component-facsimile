@@ -176,4 +176,23 @@ describe('FilterState Integration', () => {
       expect(fetchCached).toHaveBeenCalledWith('https://cdn.example.org/custom-overview.json')
     })
   })
+
+  describe('Transcription detail links', () => {
+    it('uses the current edition, page, and writing zone in the detail URL', () => {
+      const router = Object.create(VideFacsRouter.prototype)
+      router.currentEdition = { source: { label: 'AB' } }
+      router.currentZonePageIndex = 17
+
+      const metadata = router.createZoneMetadata({
+        label: '4',
+        identifier: {
+          svgId: 'zone-4',
+          atFilename: 'example.xml'
+        }
+      })
+
+      expect(metadata.querySelector('.open-detail-btn').href)
+        .toBe('https://web2.beethovens-werkstatt.de/transcription/AB/wz17.4/')
+    })
+  })
 })

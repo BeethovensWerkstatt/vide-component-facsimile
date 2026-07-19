@@ -1847,9 +1847,12 @@ export class VideFacsRouter {
     html += '</div>' // Close metadata-section
 
     // Add button to open detail view
-    if (zone.identifier && zone.identifier.atFilename) {
+    const sourceLabel = this.currentEdition?.source?.label
+    const pageIndex = this.currentZonePageIndex
+    if (zone.identifier && zone.identifier.atFilename && sourceLabel && pageIndex && zone.label) {
+      const transcriptionUrl = `https://web2.beethovens-werkstatt.de/transcription/${encodeURIComponent(sourceLabel)}/wz${pageIndex}.${encodeURIComponent(zone.label)}/`
       html += '<div class="metadata-actions">'
-      html += '<a class="open-detail-btn" href="http://localhost:4000/transcription/NK/wz29.5/">Zeige Transkriptionen</a>'// `<button class="open-detail-btn" data-at-filename="${zone.identifier.atFilename}">Zeige Transkriptionen</button>`
+      html += `<a class="open-detail-btn" href="${transcriptionUrl}">Zeige Transkriptionen</a>`
       html += '</div>'
     }
 
