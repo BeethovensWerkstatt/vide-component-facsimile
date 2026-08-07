@@ -1810,6 +1810,14 @@ export class VideFacsRouter {
                            (target.end && target.end.mdivPos)
             if (mdivPos) {
               movementText = `${mdivPos}. Satz`
+
+              if (group.opus === 'Op.120') {
+                if (target.mdivPos === '1') {
+                  movementText = 'Thema'
+                } else {
+                  movementText = `${(parseInt(mdivPos) - 1)}. Variation`
+                }
+              }
             }
 
             // Show movement/section info based on what fields are present
