@@ -10,18 +10,19 @@ $brand-color: #c62828 !default;
 $grey-color-light: #e8e8e8 !default;
 $mobile-width: 768px !default;
 
-// Override base site's .content-wrapper when it contains the SPA island
-.content-wrapper:has(vide-facs) {
+// Override the base site's nested content wrappers for the SPA island.
+.wrapper:has(vide-facs) {
   max-width: none;
-  width: calc(100% - 2rem);
-  margin: 1rem;
+  width: 100%;
+  margin: 0;
   padding: 0;
 }
 
-@media screen and (min-width: 1400px) {
-  .wrapper {
-    width: calc(100% - 2rem);
-  }
+.content-wrapper:has(vide-facs) {
+  max-width: none;
+  width: calc(100% - 4rem);
+  margin: 0 2rem;
+  padding: 0;
 }
 
 // Main app container
