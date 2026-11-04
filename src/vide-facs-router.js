@@ -1858,7 +1858,8 @@ export class VideFacsRouter {
     const sourceLabel = this.currentEdition?.source?.label
     const pageIndex = this.currentZonePageIndex
     if (zone.identifier && zone.identifier.atFilename && sourceLabel && pageIndex && zone.label) {
-      const transcriptionUrl = `https://web2.beethovens-werkstatt.de/transcription/${encodeURIComponent(sourceLabel)}/wz${pageIndex}.${encodeURIComponent(zone.label)}/`
+      // Build URL to transcription detail view for this zone
+      const transcriptionUrl = `/transcription/${encodeURIComponent(sourceLabel)}/wz${pageIndex}.${encodeURIComponent(zone.label)}/`
       html += '<div class="metadata-actions">'
       html += `<a class="open-detail-btn" href="${transcriptionUrl}">Zeige Transkriptionen</a>`
       html += '</div>'
