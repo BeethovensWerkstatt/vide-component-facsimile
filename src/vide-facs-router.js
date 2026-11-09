@@ -37,7 +37,10 @@ function normalizeDocuments (apiBase, documents) {
  */
 export class VideFacsRouter {
   constructor (appElement, config = {}) {
-    this.basePath = '/facs'
+    this.basePath = config.basePath || '/facs'
+    this.transcriptionPath = config.transcriptionPath || '/transcription'
+    console.log(`[VideFacsRouter] Initialized with basePath=${this.basePath}, transcriptionPath=${this.transcriptionPath}`)
+    // this.worksPath = config.worksPath || '/works'
     this.apiBase = config.apiBase || DEFAULT_API_BASE
     this.documents = normalizeDocuments(this.apiBase, config.documents)
     this.app = appElement
@@ -1859,7 +1862,7 @@ export class VideFacsRouter {
     const pageIndex = this.currentZonePageIndex
     if (zone.identifier && zone.identifier.atFilename && sourceLabel && pageIndex && zone.label) {
       // Build URL to transcription detail view for this zone
-      const transcriptionUrl = `/transcription/${encodeURIComponent(sourceLabel)}/wz${pageIndex}.${encodeURIComponent(zone.label)}/`
+      const transcriptionUrl = `${this.transcriptionPath}/${encodeURIComponent(sourceLabel)}/wz${pageIndex}.${encodeURIComponent(zone.label)}/`
       html += '<div class="metadata-actions">'
       html += `<a class="open-detail-btn" href="${transcriptionUrl}">Zeige Transkriptionen</a>`
       html += '</div>'
